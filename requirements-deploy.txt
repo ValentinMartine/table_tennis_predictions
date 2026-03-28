@@ -1,0 +1,28 @@
+# Requirements minimaux pour le déploiement Render (dashboard uniquement)
+# Exclut : selenium, playwright, telegram-bot, pytest, outils de scraping lourds
+
+# HTTP (pour Sofascore live dans l'onglet "Prochains matchs")
+requests>=2.32.0
+curl-cffi>=0.7.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Data
+pandas>=2.0.0
+numpy>=1.26.0
+
+# ML
+scikit-learn>=1.4.0
+lightgbm>=4.0.0
+xgboost>=2.0.0
+shap>=0.47.0
+
+# Config
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# Dashboard
+streamlit>=1.40.0
+plotly>=5.24.0

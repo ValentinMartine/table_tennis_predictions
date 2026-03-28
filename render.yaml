@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: table-tennis-predictions
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: streamlit run dashboard/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_URL
+        value: sqlite:///data/tt_matches.db
