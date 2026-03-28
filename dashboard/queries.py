@@ -367,6 +367,22 @@ def get_player_ittf_rank(player_name: str) -> int:
     return int(df.iloc[0]["rank"])
 
 
+def get_player_wtt_rank(player_name: str) -> tuple[int, float | None]:
+    """Dernier rang WTT + points YTD connus du joueur. Retourne (rank, points_ytd)."""
+    df = _query("""
+        SELECT wr.rank, wr.points_ytd
+        FROM players p
+        JOIN wtt_rankings wr ON wr.player_id = p.id
+        WHERE p.name = :name
+        ORDER BY wr.snapshot_date DESC
+        LIMIT 1
+    """, {"name": player_name})
+    if df.empty or df.iloc[0]["rank"] is None:
+        return 9999, None
+    pts = df.iloc[0]["points_ytd"]
+    return int(df.iloc[0]["rank"]), (float(pts) if pts is not None else None)
+
+
 def get_player_info(player_name: str) -> dict:
     """Infos de base : age, gender, country."""
     df = _query("""

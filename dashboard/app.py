@@ -35,6 +35,7 @@ from dashboard.queries import (
     get_player_rolling_winrate,
     get_player_countries,
     get_player_stats,
+    get_player_wtt_rank,
     get_recent_bets,
     get_rolling_roi,
     get_summary_stats,
@@ -314,22 +315,82 @@ with tab_calc:
         ec1, ec2 = st.columns(2)
         with ec1:
             edge_p1 = st.selectbox("Joueur 1", [""] + all_names_edge, key="edge_p1")
-            odds_p1 = st.number_input("Cote bookmaker (Joueur 1)", min_value=1.01, max_value=20.0,
-                                      value=1.80, step=0.05, key="odds_p1")
         with ec2:
-            edge_p2 = st.selectbox("Joueur 2", [""] + all_names_edge, key="edge_p2")
-            odds_p2 = st.number_input("Cote bookmaker (Joueur 2)", min_value=1.01, max_value=20.0,
-                                      value=2.10, step=0.05, key="odds_p2")
+            # Exclure Joueur 1 de la liste Joueur 2
+            p2_options = [n for n in all_names_edge if n != edge_p1] if edge_p1 else all_names_edge
+            edge_p2 = st.selectbox("Joueur 2", [""] + p2_options, key="edge_p2")
 
-        bankroll_input = st.number_input(
-            "Bankroll (€)", min_value=10.0, max_value=100000.0,
-            value=1000.0, step=50.0, key="bankroll_calc"
-        )
+        # ── Infos clés en priorité dès que les deux joueurs sont sélectionnés ──
+        if edge_p1 and edge_p2:
+            feats_preview = get_features_for_prediction(edge_p1, edge_p2)
+            wtt_rank_p1, wtt_pts_p1 = get_player_wtt_rank(edge_p1)
+            wtt_rank_p2, wtt_pts_p2 = get_player_wtt_rank(edge_p2)
+            h2h_data = get_h2h_summary(edge_p1, edge_p2)
 
-        if edge_p1 and edge_p2 and edge_p1 != edge_p2:
-            feats = get_features_for_prediction(edge_p1, edge_p2)
+            st.divider()
+            st.markdown("#### Comparaison des joueurs")
 
-            from src.features.elo import expected_score as _expected_score
+            info_col1, info_col2, info_col3 = st.columns([5, 2, 5])
+
+            with info_col1:
+                with st.container(border=True):
+                    elo_p1_val = feats_preview["_elo_p1"]
+                    ittf_p1 = feats_preview["ittf_rank_p1"]
+                    form_p1 = feats_preview["form_p1"]
+                    st.markdown(f"**{edge_p1}**")
+                    st.markdown(f"Elo : **{elo_p1_val:.0f}**")
+                    st.markdown(f"WTT rank : **{'#' + str(wtt_rank_p1) if wtt_rank_p1 < 9999 else 'N/C'}**"
+                                + (f"  ·  {wtt_pts_p1:.0f} pts" if wtt_pts_p1 else ""))
+                    st.markdown(f"ITTF rank : **{'#' + str(ittf_p1) if ittf_p1 < 9999 else 'N/C'}**")
+                    st.markdown(f"Forme (5J) : **{form_p1:.0%}**")
+
+            with info_col2:
+                st.markdown("<br><br>", unsafe_allow_html=True)
+                # H2H centré
+                if h2h_data["matches"] > 0:
+                    st.markdown(
+                        f"<div style='text-align:center;font-size:13px;color:#aaa'>H2H</div>"
+                        f"<div style='text-align:center;font-size:22px;font-weight:bold'>"
+                        f"{h2h_data['p1_wins']} – {h2h_data['p2_wins']}</div>"
+                        f"<div style='text-align:center;font-size:11px;color:#aaa'>{h2h_data['matches']} matchs</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        "<div style='text-align:center;font-size:13px;color:#aaa'>H2H<br>Aucun</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            with info_col3:
+                with st.container(border=True):
+                    elo_p2_val = feats_preview["_elo_p2"]
+                    ittf_p2 = feats_preview["ittf_rank_p2"]
+                    form_p2 = feats_preview["form_p2"]
+                    st.markdown(f"**{edge_p2}**")
+                    st.markdown(f"Elo : **{elo_p2_val:.0f}**")
+                    st.markdown(f"WTT rank : **{'#' + str(wtt_rank_p2) if wtt_rank_p2 < 9999 else 'N/C'}**"
+                                + (f"  ·  {wtt_pts_p2:.0f} pts" if wtt_pts_p2 else ""))
+                    st.markdown(f"ITTF rank : **{'#' + str(ittf_p2) if ittf_p2 < 9999 else 'N/C'}**")
+                    st.markdown(f"Forme (5J) : **{form_p2:.0%}**")
+
+            st.divider()
+
+        # ── Cotes + Bankroll ──────────────────────────────────────────────────
+        if edge_p1 and edge_p2:
+            oc1, oc2 = st.columns(2)
+            with oc1:
+                odds_p1 = st.number_input("Cote bookmaker (Joueur 1)", min_value=1.01, max_value=20.0,
+                                          value=1.80, step=0.05, key="odds_p1")
+            with oc2:
+                odds_p2 = st.number_input("Cote bookmaker (Joueur 2)", min_value=1.01, max_value=20.0,
+                                          value=2.10, step=0.05, key="odds_p2")
+
+            bankroll_input = st.number_input(
+                "Bankroll (€)", min_value=10.0, max_value=100000.0,
+                value=1000.0, step=50.0, key="bankroll_calc"
+            )
+
+            feats = feats_preview  # already fetched above
             elo_prob = feats["elo_win_prob_p1"]
             implied_p1 = (1 / odds_p1) / (1 / odds_p1 + 1 / odds_p2)
 
@@ -355,8 +416,6 @@ with tab_calc:
             if edge_p2_val > 0:
                 kelly_stake_p2 = compute_stake(bankroll_input, 1 - use_prob, odds_p2, 0.25, 0.02)
 
-            st.divider()
-
             # Résumé visuel
             r1, r2, r3, r4 = st.columns(4)
             r1.metric(
@@ -380,7 +439,7 @@ with tab_calc:
 
             st.divider()
 
-            # Tableau de synthèse
+            # Tableau de synthèse par joueur
             col_j1, col_j2 = st.columns(2)
             with col_j1:
                 with st.container(border=True):
@@ -419,9 +478,6 @@ with tab_calc:
                     ],
                 }
                 st.dataframe(pd.DataFrame(detail_data), use_container_width=True, hide_index=True)
-
-        elif edge_p1 and edge_p2 and edge_p1 == edge_p2:
-            st.warning("Sélectionne deux joueurs différents.")
         else:
             st.info("Sélectionne deux joueurs et entre leurs cotes pour calculer l'edge.", icon="👆")
 
