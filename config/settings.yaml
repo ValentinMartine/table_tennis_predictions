@@ -1,0 +1,219 @@
+database:
+  url: "sqlite:///data/tt_matches.db"
+  # prod: postgresql://user:pass@host/tt_matches
+
+# -------------------------------------------------------
+# Compétitions couvertes
+# priority: 1=haute (vrais joueurs ITTF, modèle prioritaire)
+#           2=volume utile pour entraînement
+#           3=complément / faible intérêt prédictif
+# -------------------------------------------------------
+competitions:
+  leagues:
+    # --- Compétitions disponibles via Sofascore (IDs vérifiés) ---
+    # Ligues virtuelles : énorme volume (~300-700 matchs/jour) mais
+    # joueurs non classés ITTF → utiles pour le volume, pas pour les cotes
+    - id: setka_cup
+      name: "Setka Cup"
+      country: UA
+      source: sofascore
+      priority: 2
+      sofascore_tournament_id: 15004
+    - id: liga_pro
+      name: "Liga Pro"
+      country: RU
+      source: sofascore
+      priority: 2
+      sofascore_tournament_id: 15006
+    - id: liga_pro_belarus
+      name: "Liga Pro Belarus"
+      country: BY
+      source: sofascore
+      priority: 3
+      sofascore_tournament_id: 31462
+    - id: czech_liga_pro
+      name: "Czech Liga Pro"
+      country: CZ
+      source: sofascore
+      priority: 3
+      sofascore_tournament_id: 19039
+    - id: tt_elite_series
+      name: "TT Elite Series"
+      country: PL
+      source: sofascore
+      priority: 3
+      sofascore_tournament_id: 19041
+    - id: tt_cup_cz
+      name: "TT Cup"
+      country: CZ
+      source: sofascore
+      priority: 3
+      sofascore_tournament_id: 15005
+    # --- Non disponibles sur Sofascore (gardés pour futur) ---
+    - id: ttnet
+      name: "TTNet League"
+      country: TR
+      source: betsapi
+      priority: 2
+    - id: bundesliga
+      name: "Bundesliga"
+      country: DE
+      source: betsapi
+      priority: 2
+    - id: ittf_pro_league
+      name: "ITTF Pro League"
+      country: INT
+      source: tabletennis_guide
+      priority: 3
+
+  international:
+    # --- Disponibles via Sofascore (filtre par nom, IDs changent par édition) ---
+    - id: wtt_champions
+      name: "WTT Champions"
+      source: sofascore
+      priority: 1
+    - id: wtt_star_contenders
+      name: "WTT Star Contenders"
+      source: sofascore
+      priority: 1
+    - id: wtt_contenders
+      name: "WTT Contenders"
+      source: sofascore
+      priority: 2
+    - id: wtt_cup_finals
+      name: "WTT Cup Finals"
+      source: sofascore
+      priority: 1
+    - id: wtt_feeder
+      name: "WTT Feeder"
+      source: sofascore
+      priority: 3
+    - id: ettu_champions
+      name: "ETTU Champions League"
+      source: sofascore
+      priority: 2
+      sofascore_tournament_id: 2122
+    - id: ettu_champions_w
+      name: "ETTU Champions League Women"
+      source: sofascore
+      priority: 2
+      sofascore_tournament_id: 9500
+    # --- Non couvertes par Sofascore ---
+    - id: world_championships
+      name: "World Championships"
+      source: tabletennis_guide
+      priority: 2
+    - id: european_championships
+      name: "European Championships"
+      source: tabletennis_guide
+      priority: 3
+    - id: asian_championships
+      name: "Asian Championships"
+      source: tabletennis_guide
+      priority: 3
+
+scraping:
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  request_delay_seconds: 0.5       # délai entre requêtes (anti-ban)
+  max_retries: 3
+  timeout_seconds: 30
+  skillgamesboard_base_url: "https://tt.skillgamesboard.com"
+  tabletennis_guide_base_url: "https://www.tabletennis.guide"
+  flashscore_base_url: "https://www.flashscore.com"
+
+betsapi:
+  base_url: "https://api.betsapi.com/v1"
+  sport_id: 18                      # table tennis
+  # token: chargé depuis .env
+  # Package 1 mois données TT: https://betsapi.com/mm/buy/92-1m-tabletennis
+
+oddsmatrix:
+  # Alternative à BetsAPI — 291 compétitions TT, 16 marchés, ~18k events/an
+  # 1 mois d'essai gratuit disponible sur demande
+  # https://oddsmatrix.com/sports/table-tennis/
+  enabled: false                    # passer à true après avoir obtenu les credentials
+  base_url: "https://api.oddsmatrix.com/v1"
+  sport: "table_tennis"
+  markets: ["match_winner", "asian_handicap", "over_under"]
+  # token: chargé depuis .env (ODDSMATRIX_TOKEN)
+
+# -------------------------------------------------------
+# Sources de données statiques (CSV, no scraping needed)
+# -------------------------------------------------------
+static_data:
+  ittf_csv:
+    # Repo: https://github.com/romanzdk/ittf-data-scrape (branche master)
+    # Contenu : snapshots rankings ITTF 2001→2024 + infos joueurs
+    # Téléchargement automatique via scripts/bootstrap_data.py
+    rankings_men_url: "https://raw.githubusercontent.com/romanzdk/ittf-data-scrape/master/data/ittf_rankings.csv"
+    rankings_women_url: "https://raw.githubusercontent.com/romanzdk/ittf-data-scrape/master/data/ittf_rankings_women.csv"
+    player_info_url: "https://raw.githubusercontent.com/romanzdk/ittf-data-scrape/master/data/ittf_player_info.csv"
+
+  kaggle:
+    # Dataset: https://www.kaggle.com/datasets/medaxone/one-month-table-tennis-dataset
+    # 1 mois Setka Cup (juin-juillet 2022). Télécharger manuellement dans data/raw/
+    file: "data/raw/kaggle_setka_2022.csv"
+    competition_id: "setka_cup"
+
+features:
+  elo:
+    initial_rating: 1500
+    k_factor_default: 32
+    k_factor_new_player: 40         # pour <30 matchs
+    # Par compétition : pondération des victoires
+    competition_weights:
+      wtt_champions: 1.5
+      world_championships: 2.0
+      wtt_star_contenders: 1.3
+      wtt_contenders: 1.1
+      bundesliga: 1.0
+      setka_cup: 0.8
+      liga_pro: 0.8
+      ttnet: 0.9
+      default: 1.0
+  form:
+    window: 5                        # derniers N matchs
+    decay: 0.85                      # pondération exponentielle (récent > ancien)
+  h2h:
+    min_matches: 3                   # minimum pour être significatif
+    max_age_days: 730                # ignorer H2H > 2 ans
+  rest:
+    fatigue_threshold_hours: 48      # <48h entre matchs = fatigue
+
+models:
+  val_cutoff_date: "2024-01-01"     # train : 2022-2023, val : 2024, test : 2025
+  train_cutoff_date: "2025-01-01"   # (= test start date)
+  test_start_date: "2025-01-01"
+  cv_folds: 5
+  calibration: isotonic
+  lgbm:
+    n_estimators: 500
+    learning_rate: 0.05
+    max_depth: 6
+    num_leaves: 31
+    min_child_samples: 20
+    subsample: 0.8
+    colsample_bytree: 0.8
+  xgb:
+    n_estimators: 500
+    learning_rate: 0.05
+    max_depth: 6
+    subsample: 0.8
+    colsample_bytree: 0.8
+
+betting:
+  kelly_fraction: 0.25              # quart Kelly
+  min_edge: 0.03                    # edge minimum pour parier (3%)
+  min_confidence: 0.55              # proba minimum
+  max_stake_pct: 0.02               # max 2% bankroll par pari
+  min_odds: 1.60
+  max_odds: 3.50
+
+monitoring:
+  stop_loss_pct: -0.10              # stop si -10% bankroll
+  stop_loss_n_bets: 200             # sur les 200 derniers paris
+  report_frequency: weekly
+
+telegram:
+  # token et chat_id chargés depuis .env
+  alert_min_edge: 0.05              # edge minimum pour alerte
