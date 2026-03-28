@@ -1,0 +1,13 @@
+{
+  "model": "Elo Baseline (test)",
+  "accuracy": 0.6681,
+  "f1": 0.6893,
+  "f1_macro": 0.6666,
+  "precision": 0.6747,
+  "recall": 0.7046,
+  "mcc": 0.3339,
+  "log_loss": 0.6105,
+  "brier_score": 0.2109,
+  "roc_auc": 0.7316,
+  "n_samples": 4761
+}

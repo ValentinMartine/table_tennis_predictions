@@ -8,14 +8,12 @@ venv/
 dist/
 build/
 
-# Data (trop volumineux / secrets)
-data/
+# Data — ignorer le contenu sauf les fichiers déployés sur Render
+data/*
 !data/.gitkeep
-# Fichiers déployés sur Render (DB + modèles)
 !data/tt_matches.db
 !data/lgbm_model.pkl
 !data/xgb_model.pkl
-!data/lgbm_model.pkl
 !data/lgbm_metrics.json
 !data/xgb_metrics.json
 !data/model_metrics.json
@@ -26,9 +24,6 @@ data/
 !data/xgb_calibration.csv
 !data/calibration_data.csv
 !data/elo_baseline_metrics.json
-# WAL SQLite — ne jamais commiter
-data/*.db-shm
-data/*.db-wal
 
 # Secrets
 .env
