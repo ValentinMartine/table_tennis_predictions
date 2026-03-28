@@ -141,8 +141,8 @@ st.divider()
 
 # ── ONGLETS ───────────────────────────────────────────────────────────────────
 
-tab_pred, tab_calc, tab_players, tab_model, tab_explore, tab_analyse = st.tabs([
-    "🎯 Prédictions", "⚡ Calculateur d'edge", "👤 Joueurs", "🤖 Modèle", "📊 Explorer", "📈 Analyse"
+tab_pred, tab_calc, tab_players, tab_model, tab_donnees = st.tabs([
+    "🎯 Prédictions", "🎰 Paris", "👤 Joueurs", "🤖 Modèle", "📊 Données"
 ])
 
 
@@ -293,7 +293,7 @@ with tab_pred:
 # ══════════════════════════════════════════════════════════════════════════════
 
 with tab_calc:
-    st.subheader("Calculateur d'edge")
+    st.subheader("Paris")
     st.markdown(
         "L'**edge** mesure l'avantage par rapport aux cotes d'un bookmaker : "
         "si le modèle estime 65% de chances et que la cote implique 55%, l'edge est **+10%**. "
@@ -895,12 +895,12 @@ with tab_model:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 5 — EXPLORER
+# TAB 5 — DONNÉES (Calendrier + Historique + Backtest + Suivi)
 # ══════════════════════════════════════════════════════════════════════════════
 
-with tab_explore:
+with tab_donnees:
 
-    explore_sub = st.tabs(["📅 Calendrier WTT", "📊 Données historiques"])
+    explore_sub = st.tabs(["📅 Calendrier WTT", "📊 Historique", "📈 Backtest", "🎯 Suivi des paris"])
 
     # ── Calendrier ────────────────────────────────────────────────────────────
     with explore_sub[0]:
@@ -940,7 +940,7 @@ with tab_explore:
 
     # ── Données historiques ───────────────────────────────────────────────────
     with explore_sub[1]:
-        st.subheader("Données historiques")
+        st.subheader("Historique des données")
 
         df_status = get_competition_status()
         if not df_status.empty:
@@ -1019,16 +1019,8 @@ with tab_explore:
                 st.info("Aucune donnée de ranking ITTF disponible.", icon="📭")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 6 — ANALYSE (Backtest + Monitoring)
-# ══════════════════════════════════════════════════════════════════════════════
-
-with tab_analyse:
-
-    analyse_sub = st.tabs(["📈 Backtest", "🎯 Suivi des paris"])
-
     # ── Backtest ──────────────────────────────────────────────────────────────
-    with analyse_sub[0]:
+    with explore_sub[2]:
         st.subheader("Backtest — simulation de paris")
         st.markdown(
             "Simulation de paris sur les données historiques avec la stratégie Kelly fractionnaire. "
@@ -1129,7 +1121,7 @@ with tab_analyse:
                 )
 
     # ── Monitoring ────────────────────────────────────────────────────────────
-    with analyse_sub[1]:
+    with explore_sub[3]:
         st.subheader("Suivi des paris")
 
         mode = st.radio("Mode", ["Paper trading", "Paris réels"], horizontal=True)
