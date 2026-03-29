@@ -532,19 +532,24 @@ with tab_players:
             else:
                 df_players["age"] = None
 
+            import numpy as np
+            rng = np.random.default_rng(42)
+            df_plot = df_players.copy()
+            df_plot["matches_played_j"] = df_players["matches_played"] + rng.uniform(-0.4, 0.4, len(df_players))
             color_col = "gender" if df_players["gender"].notna().any() else "country"
             fig3 = px.scatter(
-                df_players, x="matches_played", y="win_rate_pct",
-                color=color_col,
-                hover_data={"name": True, "age": True, "gender": True, "country": True},
+                df_plot, x="matches_played_j", y="win_rate_pct",
+                text="name", color=color_col,
+                hover_data={"name": True, "age": True, "gender": True, "country": True, "matches_played": True, "matches_played_j": False},
                 color_discrete_map={"M": "#4c9be8", "F": "#e84c9b"},
                 labels={
-                    "matches_played": "Matchs joués",
+                    "matches_played_j": "Matchs joués",
                     "win_rate_pct": "Win rate (%)",
-                    "gender": "Sexe", "age": "Âge", "name": "Joueur",
+                    "gender": "Sexe", "age": "Âge", "name": "Joueur", "matches_played": "Matchs joués",
                 },
                 height=420,
             )
+            fig3.update_traces(textposition="top center", textfont_size=9)
             fig3.add_hline(y=50, line_dash="dash", line_color="gray", opacity=0.5)
             st.plotly_chart(fig3, use_container_width=True)
 
