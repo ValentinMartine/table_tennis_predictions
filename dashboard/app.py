@@ -68,24 +68,22 @@ PRIORITY_LABELS = {1: "★ Priorité 1", 2: "Priorité 2", 3: "Priorité 3", 99:
 PRIORITY_COLORS = {1: "#2ecc71", 2: "#4c9be8", 3: "#f39c12", 99: "#7f8c8d"}
 
 WTT_CALENDAR_2025_2026 = [
-    {"tournoi": "WTT Contender Doha", "debut": "2025-01-07", "fin": "2025-01-12", "type": "Contender", "lieu": "Doha, QAT"},
-    {"tournoi": "WTT Contender Zagreb", "debut": "2025-02-04", "fin": "2025-02-09", "type": "Contender", "lieu": "Zagreb, CRO"},
-    {"tournoi": "WTT Champions Frankfurt", "debut": "2025-02-17", "fin": "2025-02-23", "type": "Champions", "lieu": "Frankfurt, GER"},
-    {"tournoi": "WTT Star Contender Doha", "debut": "2025-02-25", "fin": "2025-03-02", "type": "Star Contender", "lieu": "Doha, QAT"},
-    {"tournoi": "WTT Singapore Smash", "debut": "2025-03-03", "fin": "2025-03-16", "type": "Champions", "lieu": "Singapore"},
-    {"tournoi": "WTT Contender Tunis", "debut": "2025-04-08", "fin": "2025-04-13", "type": "Contender", "lieu": "Tunis, TUN"},
-    {"tournoi": "WTT Star Contender Lagos", "debut": "2025-04-15", "fin": "2025-04-20", "type": "Star Contender", "lieu": "Lagos, NGR"},
-    {"tournoi": "World Table Tennis Championships (Teams)", "debut": "2025-04-27", "fin": "2025-05-04", "type": "ITTF", "lieu": "Chengdu, CHN"},
-    {"tournoi": "WTT Champions Chengdu", "debut": "2025-05-19", "fin": "2025-05-25", "type": "Champions", "lieu": "Chengdu, CHN"},
-    {"tournoi": "WTT Star Contender Tokyo", "debut": "2025-06-03", "fin": "2025-06-08", "type": "Star Contender", "lieu": "Tokyo, JPN"},
-    {"tournoi": "WTT Champions Tokyo", "debut": "2025-06-10", "fin": "2025-06-15", "type": "Champions", "lieu": "Tokyo, JPN"},
-    {"tournoi": "WTT Contender Muscat", "debut": "2025-09-09", "fin": "2025-09-14", "type": "Contender", "lieu": "Muscat, OMA"},
-    {"tournoi": "WTT Star Contender Almaty", "debut": "2025-09-23", "fin": "2025-09-28", "type": "Star Contender", "lieu": "Almaty, KAZ"},
-    {"tournoi": "WTT Champions Riyadh", "debut": "2025-10-13", "fin": "2025-10-19", "type": "Champions", "lieu": "Riyadh, KSA"},
-    {"tournoi": "WTT Star Contender New Delhi", "debut": "2025-11-04", "fin": "2025-11-09", "type": "Star Contender", "lieu": "New Delhi, IND"},
-    {"tournoi": "WTT Cup Finals", "debut": "2025-11-18", "fin": "2025-11-23", "type": "Cup Finals", "lieu": "À confirmer"},
-    {"tournoi": "WTT Champions Frankfurt", "debut": "2026-02-16", "fin": "2026-02-22", "type": "Champions", "lieu": "Frankfurt, GER"},
-    {"tournoi": "WTT Singapore Smash", "debut": "2026-03-02", "fin": "2026-03-15", "type": "Champions", "lieu": "Singapore"},
+    {"tournoi": "WTT Star Contender Doha", "debut": "2025-01-06", "fin": "2025-01-11", "type": "Star Contender", "lieu": "Doha, QAT", "vainqueur_h": "Tomokazu Harimoto (JPN)", "vainqueur_f": "Kuai Man (CHN)"},
+    {"tournoi": "WTT Singapore Smash", "debut": "2025-01-30", "fin": "2025-02-09", "type": "Champions", "lieu": "Singapore", "vainqueur_h": "Lin Shidong (CHN)", "vainqueur_f": "Sun Yingsha (CHN)"},
+    {"tournoi": "WTT Champions Chongqing", "debut": "2025-03-11", "fin": "2025-03-16", "type": "Champions", "lieu": "Chongqing, CHN", "vainqueur_h": "Wang Chuqin (CHN)", "vainqueur_f": "Sun Yingsha (CHN)"},
+    {"tournoi": "WTT Contender Tunis", "debut": "2025-04-22", "fin": "2025-04-27", "type": "Contender", "lieu": "Tunis, TUN", "vainqueur_h": "Felix Lebrun (FRA)", "vainqueur_f": "Miwa Harimoto (JPN)"},
+    {"tournoi": "WTT Star Contender Ljubljana", "debut": "2025-06-17", "fin": "2025-06-22", "type": "Star Contender", "lieu": "Ljubljana, SLO", "vainqueur_h": "Hugo Calderano (BRA)", "vainqueur_f": "Miyu Nagasaki (JPN)"},
+    {"tournoi": "WTT Contender Zagreb", "debut": "2025-06-24", "fin": "2025-06-29", "type": "Contender", "lieu": "Zagreb, CRO", "vainqueur_h": "Tomokazu Harimoto (JPN)", "vainqueur_f": "Satsuki Odo (JPN)"},
+    {"tournoi": "WTT Contender Lagos", "debut": "2025-07-22", "fin": "2025-07-26", "type": "Contender", "lieu": "Lagos, NGR", "vainqueur_h": "Anders Lind (DEN)", "vainqueur_f": "Hana Goda (JPN)"},
+    {"tournoi": "WTT Champions Yokohama", "debut": "2025-08-07", "fin": "2025-08-11", "type": "Champions", "lieu": "Yokohama, JPN", "vainqueur_h": "Tomokazu Harimoto (JPN)", "vainqueur_f": "Chen Xingtong (CHN)"},
+    {"tournoi": "WTT Contender Almaty", "debut": "2025-09-02", "fin": "2025-09-07", "type": "Contender", "lieu": "Almaty, KAZ", "vainqueur_h": "Shunsuke Togami (JPN)", "vainqueur_f": "Honoka Hashimoto (JPN)"},
+    {"tournoi": "WTT Champions Montpellier", "debut": "2025-10-28", "fin": "2025-11-02", "type": "Champions", "lieu": "Montpellier, FRA", "vainqueur_h": "Truls Möregård (SWE)", "vainqueur_f": "Wang Yidi (CHN)"},
+    {"tournoi": "WTT Champions Frankfurt", "debut": "2025-11-04", "fin": "2025-11-09", "type": "Champions", "lieu": "Frankfurt, GER", "vainqueur_h": "Sora Matsushima (JPN)", "vainqueur_f": "Hina Hayata (JPN)"},
+    {"tournoi": "WTT Star Contender Muscat", "debut": "2025-11-17", "fin": "2025-11-22", "type": "Star Contender", "lieu": "Muscat, OMA", "vainqueur_h": "Felix Lebrun (FRA)", "vainqueur_f": "Miyuu Kihara (JPN)"},
+    {"tournoi": "WTT Finals Hong Kong", "debut": "2025-12-10", "fin": "2025-12-14", "type": "Cup Finals", "lieu": "Hong Kong, HKG", "vainqueur_h": "Tomokazu Harimoto (JPN)", "vainqueur_f": "Wang Manyu (CHN)"},
+    {"tournoi": "WTT Champions Doha", "debut": "2026-01-07", "fin": "2026-01-11", "type": "Champions", "lieu": "Doha, QAT", "vainqueur_h": "Lin Yun-ju (TPE)", "vainqueur_f": "Zhu Yuling (MAC)"},
+    {"tournoi": "WTT Singapore Smash", "debut": "2026-02-19", "fin": "2026-03-01", "type": "Champions", "lieu": "Singapore", "vainqueur_h": "Wang Chuqin (CHN)", "vainqueur_f": "Sun Yingsha (CHN)"},
+    {"tournoi": "WTT Champions Chongqing", "debut": "2026-03-10", "fin": "2026-03-15", "type": "Champions", "lieu": "Chongqing, CHN", "vainqueur_h": "Felix Lebrun (FRA)", "vainqueur_f": "Miwa Harimoto (JPN)"},
 ]
 
 
@@ -537,17 +535,16 @@ with tab_players:
             color_col = "gender" if df_players["gender"].notna().any() else "country"
             fig3 = px.scatter(
                 df_players, x="matches_played", y="win_rate_pct",
-                text="name", color=color_col,
-                hover_data={"age": True, "gender": True, "country": True},
+                color=color_col,
+                hover_data={"name": True, "age": True, "gender": True, "country": True},
                 color_discrete_map={"M": "#4c9be8", "F": "#e84c9b"},
                 labels={
                     "matches_played": "Matchs joués",
                     "win_rate_pct": "Win rate (%)",
-                    "gender": "Sexe", "age": "Âge",
+                    "gender": "Sexe", "age": "Âge", "name": "Joueur",
                 },
                 height=420,
             )
-            fig3.update_traces(textposition="top center", textfont_size=9)
             fig3.add_hline(y=50, line_dash="dash", line_color="gray", opacity=0.5)
             st.plotly_chart(fig3, use_container_width=True)
 
@@ -932,6 +929,7 @@ with tab_donnees:
         def _render_tournament(row):
             is_ongoing = row["debut"] <= today <= row["fin"]
             is_upcoming = row["debut"] > today
+            is_past = row["fin"] < today
             status_icon = "🔴 En cours" if is_ongoing else ("⏳ À venir" if is_upcoming else "✅ Passé")
             with st.container(border=True):
                 c1e, c2e, c3e, c4e = st.columns([4, 2, 2, 1])
@@ -939,6 +937,16 @@ with tab_donnees:
                 c2e.markdown(f"Type  \n**{row['type']}**")
                 c3e.markdown(f"{row['debut'].strftime('%d/%m')} → {row['fin'].strftime('%d/%m/%Y')}")
                 c4e.markdown(status_icon)
+                if is_past:
+                    vh = row.get("vainqueur_h", "")
+                    vf = row.get("vainqueur_f", "")
+                    if vh or vf:
+                        parts = []
+                        if vh:
+                            parts.append(f"🏆 H : {vh}")
+                        if vf:
+                            parts.append(f"🏆 F : {vf}")
+                        c1e.markdown("  \n".join(parts))
 
         # À venir / en cours
         if not df_upcoming.empty:
