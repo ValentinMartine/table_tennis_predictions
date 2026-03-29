@@ -130,6 +130,7 @@ def get_top_players(
             params[f"c{i}"] = c
 
     where_sql = "WHERE " + " AND ".join(where_clauses)
+    del params["limit"]
 
     return _query(f"""
         SELECT p.name, p.country, p.gender, p.date_of_birth,
@@ -144,7 +145,7 @@ def get_top_players(
         GROUP BY p.id, p.name, p.country, p.gender, p.date_of_birth
         HAVING COUNT(DISTINCT m.id) >= :min_matches
         ORDER BY matches_played DESC
-        LIMIT :limit
+        LIMIT {limit}
     """, params)
 
 
