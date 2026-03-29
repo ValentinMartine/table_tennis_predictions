@@ -542,19 +542,25 @@ with tab_players:
                 df_players["age"] = None
 
             color_col = "gender" if df_players["gender"].notna().any() else "country"
-            df_plot = df_players.sort_values("win_rate_pct", ascending=True)
+            df_plot = df_players.sort_values("win_rate_pct", ascending=True).copy()
+            df_plot["label"] = df_plot.apply(
+                lambda r: f"{r['win_rate_pct']}%  ({int(r['matches_played'])} matchs)", axis=1
+            )
             fig3 = px.bar(
                 df_plot, x="win_rate_pct", y="name",
                 color=color_col, orientation="h",
-                hover_data={"age": True, "gender": True, "country": True, "matches_played": True},
+                text="label",
+                hover_data={"age": True, "gender": True, "country": True, "matches_played": True, "label": False},
                 color_discrete_map={"M": "#4c9be8", "F": "#e84c9b"},
                 labels={
                     "win_rate_pct": "Win rate (%)",
                     "name": "Joueur", "gender": "Sexe",
                     "age": "Âge", "matches_played": "Matchs joués",
                 },
+                barmode="overlay" if gender_filter is None else "relative",
                 height=max(500, len(df_plot) * 32),
             )
+            fig3.update_traces(textposition="outside", textfont_size=10, cliponaxis=False)
             fig3.add_vline(x=50, line_dash="dash", line_color="gray", opacity=0.5)
             st.plotly_chart(fig3, use_container_width=True)
 
