@@ -66,7 +66,7 @@ class BettingSimulator:
                 continue
 
             won = (bet_player == 1 and actual_winner == 1) or (
-                bet_player == 2 and actual_winner == 2
+                bet_player == 2 and actual_winner == 0
             )
             profit = stake * (odds - 1) if won else -stake
             bankroll += profit
