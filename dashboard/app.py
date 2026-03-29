@@ -495,13 +495,22 @@ with tab_players:
         st.caption("Classé par nombre de matchs joués dans les compétitions actives.")
 
         all_countries = get_player_countries()
-        f1, f2, f3 = st.columns(3)
+        f1, f2, f3, f4 = st.columns(4)
         with f1:
             gender_opt = st.selectbox("Sexe", ["Tous", "Hommes (M)", "Femmes (F)"], key="top_gender")
         with f2:
             min_m = st.slider("Matchs minimum", 5, 100, 10, step=5, key="top_min_matches")
         with f3:
             top_n = st.slider("Nombre de joueurs", 10, 100, 30, step=5, key="top_n")
+        with f4:
+            _period_map = {
+                "2025–2026": ("2025-01-01", str(today)),
+                "2024": ("2024-01-01", "2024-12-31"),
+                "2023": ("2023-01-01", "2023-12-31"),
+                "Tout": (None, None),
+            }
+            period_opt = st.selectbox("Période", list(_period_map.keys()), index=0, key="top_period")
+            date_from, date_to = _period_map[period_opt]
 
         selected_countries = st.multiselect(
             "Filtrer par pays", all_countries, default=[], key="top_countries",
@@ -517,7 +526,7 @@ with tab_players:
         df_players = get_top_players(
             limit=top_n, min_matches=min_m, gender=gender_filter,
             countries=selected_countries if selected_countries else None,
-            priority_max=98,
+            priority_max=98, date_from=date_from, date_to=date_to,
         )
 
         if df_players.empty:

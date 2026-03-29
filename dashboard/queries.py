@@ -115,9 +115,11 @@ def get_top_players(
     gender: str | None = None,
     countries: list[str] | None = None,
     priority_max: int = 98,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ) -> pd.DataFrame:
     where_clauses = ["c.priority <= :priority_max"]
-    params: dict = {"limit": limit, "min_matches": min_matches, "priority_max": priority_max}
+    params: dict = {"min_matches": min_matches, "priority_max": priority_max}
 
     if gender in ("M", "F"):
         where_clauses.append("p.gender = :gender")
@@ -129,8 +131,14 @@ def get_top_players(
         for i, c in enumerate(countries):
             params[f"c{i}"] = c
 
+    if date_from:
+        where_clauses.append("m.played_at >= :date_from")
+        params["date_from"] = date_from
+    if date_to:
+        where_clauses.append("m.played_at <= :date_to")
+        params["date_to"] = date_to
+
     where_sql = "WHERE " + " AND ".join(where_clauses)
-    del params["limit"]
 
     return _query(f"""
         SELECT p.name, p.country, p.gender, p.date_of_birth,
