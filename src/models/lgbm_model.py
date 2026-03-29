@@ -14,14 +14,30 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 FEATURE_COLS = [
+    # Elo global
     "elo_diff", "elo_win_prob_p1",
+    # Elo international (WTT Champions/Star Contender/Cup Finals, Worlds, JO)
+    "elo_intl_diff", "elo_intl_win_prob_p1",
+    # H2H (min_matches=1, fenêtre 5 ans)
     "h2h_matches", "h2h_winrate_p1", "h2h_recent_winrate_p1",
+    # Forme récente (fenêtre 10 matchs)
     "form_p1", "form_p2", "form_diff",
+    # Sets : volume + dominance
     "avg_sets_p1", "avg_sets_p2",
+    "avg_set_margin_p1", "avg_set_margin_p2", "set_margin_diff",
+    "close_sets_rate_p1", "close_sets_rate_p2",
+    # Fatigue & repos
     "rest_hours_p1", "rest_hours_p2", "fatigue_p1", "fatigue_p2",
+    # Rankings statiques ITTF & WTT
     "ittf_rank_p1", "ittf_rank_p2", "rank_diff",
+    "wtt_rank_p1", "wtt_rank_p2", "wtt_rank_diff",
+    # Trajectoire de classement (dynamique)
+    "rank_velocity_p1", "rank_velocity_p2", "rank_velocity_diff",
+    "rank_stability_p1", "rank_stability_p2",
+    # Âge
     "age_p1", "age_p2", "age_diff",
-    "implied_prob_p1",
+    # Cotes bookmaker
+    "has_odds", "implied_prob_p1",
 ]
 
 
@@ -56,11 +72,20 @@ class LGBMModel:
             X[col] = 0.0
         return X[self.feature_cols]
 
-    def fit(self, df_train: pd.DataFrame) -> None:
+    def fit(self, df_train: pd.DataFrame, df_val: pd.DataFrame = None) -> None:
         X = self._get_features(df_train)
         y = df_train["target"].values
         logger.info(f"Entraînement LightGBM sur {len(X)} exemples, {len(self.feature_cols)} features")
-        self.model.fit(X, y)
+        if df_val is not None:
+            from sklearn.frozen import FrozenEstimator
+            self.base_model.fit(X, y)
+            X_val = self._get_features(df_val)
+            y_val = df_val["target"].values
+            self.model = CalibratedClassifierCV(FrozenEstimator(self.base_model), method="isotonic")
+            self.model.fit(X_val, y_val)
+            logger.info(f"Calibration isotonique sur val set ({len(X_val)} exemples)")
+        else:
+            self.model.fit(X, y)
         self._is_fitted = True
         logger.info("Entraînement terminé")
 
@@ -82,7 +107,9 @@ class LGBMModel:
 
     def shap_analysis(self, df: pd.DataFrame, n_samples: int = 500) -> pd.DataFrame:
         X = self._get_features(df).head(n_samples)
-        explainer = shap.TreeExplainer(self.base_model)
+        # CalibratedClassifierCV entraîne des clones — récupérer le premier estimateur fitté
+        fitted_estimator = self.model.calibrated_classifiers_[0].estimator
+        explainer = shap.TreeExplainer(fitted_estimator)
         shap_values = explainer.shap_values(X)
         if isinstance(shap_values, list):
             shap_values = shap_values[1]

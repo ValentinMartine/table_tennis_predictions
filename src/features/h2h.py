@@ -15,8 +15,8 @@ import pandas as pd
 class H2HCalculator:
     def __init__(
         self,
-        min_matches: int = 3,
-        max_age_days: int = 730,
+        min_matches: int = 1,
+        max_age_days: int = 1825,
         decay_rate: float = 0.001,   # par jour
     ):
         self.min_matches = min_matches

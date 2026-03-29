@@ -399,6 +399,7 @@ with tab_calc:
                 try:
                     feat_row = {k: v for k, v in feats.items() if not k.startswith("_")}
                     feat_row["implied_prob_p1"] = implied_p1
+                    feat_row["has_odds"] = 1
                     sample = pd.DataFrame([feat_row])
                     model_prob = float(model_lgbm.predict_proba(sample)[0])
                 except Exception as e:

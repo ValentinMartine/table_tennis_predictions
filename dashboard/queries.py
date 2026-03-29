@@ -408,6 +408,32 @@ def get_player_info(player_name: str) -> dict:
     }
 
 
+def get_player_rank_velocity(player_name: str, window_days: int = 180) -> tuple[float, float]:
+    """
+    Calcule rank_velocity et rank_stability sur les `window_days` derniers jours.
+    rank_velocity > 0 = joueur en progression (rang s'améliore).
+    """
+    df = _query("""
+        SELECT ir.rank, ir.snapshot_date
+        FROM players p
+        JOIN ittf_rankings ir ON ir.player_id = p.id
+        WHERE p.name = :name
+        ORDER BY ir.snapshot_date DESC
+        LIMIT 20
+    """, {"name": player_name})
+    if df.empty or len(df) < 2:
+        return 0.0, 0.0
+    df["snapshot_date"] = pd.to_datetime(df["snapshot_date"])
+    cutoff = df["snapshot_date"].max() - pd.Timedelta(days=window_days)
+    window = df[df["snapshot_date"] >= cutoff].sort_values("snapshot_date")
+    if len(window) < 2:
+        return 0.0, 0.0
+    velocity = float(window["rank"].iloc[0] - window["rank"].iloc[-1])
+    velocity = float(max(min(velocity, 200), -200))
+    stability = float(window["rank"].std())
+    return velocity, stability
+
+
 def get_features_for_prediction(p1_name: str, p2_name: str) -> dict:
     """
     Construit le vecteur de features pour prédire un match entre deux joueurs.
@@ -421,41 +447,72 @@ def get_features_for_prediction(p1_name: str, p2_name: str) -> dict:
 
     h2h = get_h2h_summary(p1_name, p2_name)
     h2h_matches = h2h["matches"]
-    h2h_winrate = h2h["p1_wins"] / h2h_matches if h2h_matches >= 3 else 0.5
+    h2h_winrate = h2h["p1_wins"] / h2h_matches if h2h_matches >= 1 else 0.5
     h2h_recent_winrate = h2h_winrate  # approximation
 
-    form_p1 = get_player_form_value(p1_name, 5)
-    form_p2 = get_player_form_value(p2_name, 5)
+    form_p1 = get_player_form_value(p1_name, 10)
+    form_p2 = get_player_form_value(p2_name, 10)
 
     rank_p1 = get_player_ittf_rank(p1_name)
     rank_p2 = get_player_ittf_rank(p2_name)
+    wtt_rank_p1, _ = get_player_wtt_rank(p1_name)
+    wtt_rank_p2, _ = get_player_wtt_rank(p2_name)
+
+    vel_p1, stab_p1 = get_player_rank_velocity(p1_name)
+    vel_p2, stab_p2 = get_player_rank_velocity(p2_name)
 
     info_p1 = get_player_info(p1_name)
     info_p2 = get_player_info(p2_name)
 
     return {
+        # Elo global
         "elo_diff": elo_diff,
         "elo_win_prob_p1": elo_win_prob,
+        # Elo international (approximé par l'Elo global en l'absence d'historique séparé)
+        "elo_intl_diff": elo_diff,
+        "elo_intl_win_prob_p1": elo_win_prob,
+        # H2H
         "h2h_matches": h2h_matches,
         "h2h_winrate_p1": h2h_winrate,
         "h2h_recent_winrate_p1": h2h_recent_winrate,
+        # Forme
         "form_p1": form_p1,
         "form_p2": form_p2,
         "form_diff": form_p1 - form_p2,
+        # Sets
         "avg_sets_p1": 2.0,
         "avg_sets_p2": 2.0,
+        "avg_set_margin_p1": 2.5,
+        "avg_set_margin_p2": 2.5,
+        "set_margin_diff": 0.0,
+        "close_sets_rate_p1": 0.3,
+        "close_sets_rate_p2": 0.3,
+        # Fatigue
         "rest_hours_p1": 48.0,
         "rest_hours_p2": 48.0,
         "fatigue_p1": 0,
         "fatigue_p2": 0,
+        # Rankings statiques
         "ittf_rank_p1": rank_p1,
         "ittf_rank_p2": rank_p2,
         "rank_diff": rank_p1 - rank_p2,
+        "wtt_rank_p1": wtt_rank_p1,
+        "wtt_rank_p2": wtt_rank_p2,
+        "wtt_rank_diff": wtt_rank_p1 - wtt_rank_p2,
+        # Trajectoire de classement
+        "rank_velocity_p1": vel_p1,
+        "rank_velocity_p2": vel_p2,
+        "rank_velocity_diff": vel_p1 - vel_p2,
+        "rank_stability_p1": stab_p1,
+        "rank_stability_p2": stab_p2,
+        # Âge
         "age_p1": info_p1["age"],
         "age_p2": info_p2["age"],
         "age_diff": info_p1["age"] - info_p2["age"],
+        # Cotes (has_odds sera mis à 1 par app.py quand l'utilisateur saisit des cotes)
+        "has_odds": 0,
         "implied_prob_p1": elo_win_prob,
-        # Infos complémentaires pour affichage
+        # Infos complémentaires pour affichage (préfixe _ = non utilisé par le modèle)
         "_elo_p1": elo_p1,
         "_elo_p2": elo_p2,
         "_p1_name": p1_name,

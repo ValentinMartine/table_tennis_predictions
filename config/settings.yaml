@@ -11,43 +11,43 @@ database:
 competitions:
   leagues:
     # --- Compétitions disponibles via Sofascore (IDs vérifiés) ---
-    # Ligues virtuelles : énorme volume (~300-700 matchs/jour) mais
-    # joueurs non classés ITTF → utiles pour le volume, pas pour les cotes
+    # --- Ligues virtuelles archivées (données conservées en DB, exclues des runs) ---
+    # priority: 99 = jamais incluses dans run_scraper.py
     - id: setka_cup
       name: "Setka Cup"
       country: UA
       source: sofascore
-      priority: 2
+      priority: 99
       sofascore_tournament_id: 15004
     - id: liga_pro
       name: "Liga Pro"
       country: RU
       source: sofascore
-      priority: 2
+      priority: 99
       sofascore_tournament_id: 15006
     - id: liga_pro_belarus
       name: "Liga Pro Belarus"
       country: BY
       source: sofascore
-      priority: 3
+      priority: 99
       sofascore_tournament_id: 31462
     - id: czech_liga_pro
       name: "Czech Liga Pro"
       country: CZ
       source: sofascore
-      priority: 3
+      priority: 99
       sofascore_tournament_id: 19039
     - id: tt_elite_series
       name: "TT Elite Series"
       country: PL
       source: sofascore
-      priority: 3
+      priority: 99
       sofascore_tournament_id: 19041
     - id: tt_cup_cz
       name: "TT Cup"
       country: CZ
       source: sofascore
-      priority: 3
+      priority: 99
       sofascore_tournament_id: 15005
     # --- Non disponibles sur Sofascore (gardés pour futur) ---
     - id: ttnet
@@ -87,22 +87,33 @@ competitions:
     - id: wtt_feeder
       name: "WTT Feeder"
       source: sofascore
-      priority: 3
+      priority: 99
     - id: ettu_champions
       name: "ETTU Champions League"
       source: sofascore
-      priority: 2
+      priority: 3
       sofascore_tournament_id: 2122
     - id: ettu_champions_w
       name: "ETTU Champions League Women"
       source: sofascore
-      priority: 2
+      priority: 3
       sofascore_tournament_id: 9500
-    # --- Non couvertes par Sofascore ---
+    # --- Grandes compétitions ITTF (IDs Sofascore stables) ---
     - id: world_championships
       name: "World Championships"
-      source: tabletennis_guide
-      priority: 2
+      source: sofascore
+      priority: 1
+      sofascore_tournament_ids: [11579, 11585, 11580, 11587, 11586]  # MS, WS, MD, XD, WD
+    - id: team_world_cup
+      name: "Team World Championships"
+      source: sofascore
+      priority: 1
+      sofascore_tournament_ids: [21977, 21978, 21999, 22000]
+    - id: olympic_games
+      name: "Olympic Games"
+      source: sofascore
+      priority: 1
+      sofascore_tournament_ids: [564, 565, 1121, 1123, 17047]        # Singles MS/WS, Team MS/WS, Mixed
     - id: european_championships
       name: "European Championships"
       source: tabletennis_guide
@@ -172,11 +183,11 @@ features:
       ttnet: 0.9
       default: 1.0
   form:
-    window: 5                        # derniers N matchs
+    window: 10                       # derniers N matchs (élargi 5→10 pour plus de stabilité)
     decay: 0.85                      # pondération exponentielle (récent > ancien)
   h2h:
-    min_matches: 3                   # minimum pour être significatif
-    max_age_days: 730                # ignorer H2H > 2 ans
+    min_matches: 1                   # 1 seul match suffit (3 filtrait trop agressivement)
+    max_age_days: 1825               # fenêtre 5 ans (730 = 2 ans trop court pour WTT)
   rest:
     fatigue_threshold_hours: 48      # <48h entre matchs = fatigue
 
