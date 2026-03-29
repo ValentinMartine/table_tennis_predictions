@@ -918,17 +918,18 @@ with tab_donnees:
         )
         show_past = st.toggle("Afficher les tournois passés", value=False)
 
-        df_filtered = df_cal[df_cal["type"].isin(type_filter)]
-        if not show_past:
-            df_filtered = df_filtered[df_filtered["fin"] >= today]
-        df_filtered = df_filtered.sort_values("debut")
-
         TYPE_COLORS_CAL = {
             "Champions": "#f1c40f", "Star Contender": "#e67e22",
             "Contender": "#3498db", "Cup Finals": "#9b59b6", "ITTF": "#2ecc71",
         }
 
-        for _, row in df_filtered.iterrows():
+        df_filtered = df_cal[df_cal["type"].isin(type_filter)].copy()
+        df_filtered["year"] = df_filtered["debut"].dt.year
+
+        df_upcoming = df_filtered[df_filtered["fin"] >= today].sort_values("debut")
+        df_past = df_filtered[df_filtered["fin"] < today].sort_values("debut", ascending=False)
+
+        def _render_tournament(row):
             is_ongoing = row["debut"] <= today <= row["fin"]
             is_upcoming = row["debut"] > today
             status_icon = "🔴 En cours" if is_ongoing else ("⏳ À venir" if is_upcoming else "✅ Passé")
@@ -938,6 +939,22 @@ with tab_donnees:
                 c2e.markdown(f"Type  \n**{row['type']}**")
                 c3e.markdown(f"{row['debut'].strftime('%d/%m')} → {row['fin'].strftime('%d/%m/%Y')}")
                 c4e.markdown(status_icon)
+
+        # À venir / en cours
+        if not df_upcoming.empty:
+            st.markdown("#### ⏳ À venir")
+            for _, row in df_upcoming.iterrows():
+                _render_tournament(row)
+
+        # Passés, groupés par année (plus récent en premier)
+        if show_past and not df_past.empty:
+            st.markdown("#### ✅ Passés")
+            for year in sorted(df_past["year"].unique(), reverse=True):
+                st.markdown(f"**{year}**")
+                for _, row in df_past[df_past["year"] == year].iterrows():
+                    _render_tournament(row)
+        elif not show_past and df_upcoming.empty:
+            st.info("Aucun tournoi à venir. Active **Afficher les tournois passés** pour voir l'historique.", icon="📅")
 
     # ── Données historiques ───────────────────────────────────────────────────
     with explore_sub[1]:
