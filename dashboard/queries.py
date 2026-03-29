@@ -145,7 +145,10 @@ def get_top_players(
                COUNT(DISTINCT m.id) AS matches_played,
                ROUND(AVG(CASE WHEN m.winner = 1 AND m.player1_id = p.id
                               OR m.winner = 2 AND m.player2_id = p.id
-                         THEN 1.0 ELSE 0.0 END) * 100, 1) AS win_rate_pct
+                         THEN 1.0 ELSE 0.0 END) * 100, 1) AS win_rate_pct,
+               (SELECT ir.rank FROM ittf_rankings ir
+                WHERE ir.player_id = p.id
+                ORDER BY ir.snapshot_date DESC LIMIT 1) AS ittf_rank
         FROM players p
         JOIN matches m ON p.id = m.player1_id OR p.id = m.player2_id
         JOIN competitions c ON m.competition_id = c.id

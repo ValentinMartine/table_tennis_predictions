@@ -545,11 +545,15 @@ with tab_players:
             df_plot["label"] = df_plot.apply(
                 lambda r: f"{r['win_rate_pct']}%  ({int(r['matches_played'])} matchs)", axis=1
             )
+            df_plot["display_name"] = df_plot.apply(
+                lambda r: f"#{int(r['ittf_rank'])}  {r['name']}" if pd.notna(r.get("ittf_rank")) else f"—   {r['name']}",
+                axis=1
+            )
             color_map = {"M": "#4c9be8", "F": "#e84c9b"}
             df_plot["bar_color"] = df_plot["gender"].map(color_map).fillna("#aaaaaa")
             fig3 = go.Figure(go.Bar(
                 x=df_plot["win_rate_pct"],
-                y=df_plot["name"],
+                y=df_plot["display_name"],
                 orientation="h",
                 marker_color=df_plot["bar_color"],
                 text=df_plot["label"],
@@ -567,9 +571,10 @@ with tab_players:
             ))
             fig3.update_layout(
                 xaxis_title="Win rate (%)",
+                xaxis_range=[0, 130],
                 yaxis_title="",
                 height=max(500, len(df_plot) * 32),
-                margin={"r": 160},
+                margin={"r": 10, "l": 10},
             )
             fig3.add_vline(x=50, line_dash="dash", line_color="gray", opacity=0.5)
             st.plotly_chart(fig3, use_container_width=True)
