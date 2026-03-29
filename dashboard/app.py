@@ -553,7 +553,7 @@ with tab_players:
                     "name": "Joueur", "gender": "Sexe",
                     "age": "Âge", "matches_played": "Matchs joués",
                 },
-                height=max(420, len(df_plot) * 22),
+                height=max(500, len(df_plot) * 32),
             )
             fig3.add_vline(x=50, line_dash="dash", line_color="gray", opacity=0.5)
             st.plotly_chart(fig3, use_container_width=True)

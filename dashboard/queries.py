@@ -118,7 +118,7 @@ def get_top_players(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> pd.DataFrame:
-    where_clauses = ["c.priority <= :priority_max"]
+    where_clauses = ["c.priority <= :priority_max", "p.name NOT LIKE '%/%'", "p.gender IS NOT NULL"]
     params: dict = {"min_matches": min_matches, "priority_max": priority_max}
 
     if gender in ("M", "F"):
