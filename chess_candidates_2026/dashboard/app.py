@@ -185,32 +185,45 @@ with col2:
 
                     final_display = pd.merge(
                         upcoming[["id", "white", "black"]], pred_df, on="id"
-                    ).sort_values("Ronde")
+                    ).sort_values("Ronde").reset_index(drop=True)
 
-                    final_display["Victoire Blancs"] = final_display["P_Blanc"].apply(
-                        lambda x: f"{x:.1%}"
-                    )
-                    final_display["Nulle"] = final_display["P_Nulle"].apply(
-                        lambda x: f"{x:.1%}"
-                    )
-                    final_display["Victoire Noirs"] = final_display["P_Noir"].apply(
-                        lambda x: f"{x:.1%}"
-                    )
+                    display_df = final_display[
+                        ["Ronde", "white", "black", "P_Blanc", "P_Nulle", "P_Noir"]
+                    ].rename(columns={"white": "Blancs", "black": "Noirs"})
+                    display_df.columns = ["Ronde", "Blancs", "Noirs", "Victoire Blancs", "Nulle", "Victoire Noirs"]
 
-                    st.dataframe(
-                        final_display[
-                            [
-                                "Ronde",
-                                "white",
-                                "black",
-                                "Victoire Blancs",
-                                "Nulle",
-                                "Victoire Noirs",
-                            ]
-                        ].rename(columns={"white": "Blancs", "black": "Noirs"}),
-                        hide_index=True,
-                        use_container_width=True,
+                    # Alternating round background + outcome colours
+                    rounds = display_df["Ronde"].unique()
+                    round_parity = {r: i % 2 for i, r in enumerate(sorted(rounds))}
+                    ROW_ODD  = "background-color: #f0f2f6; color: #000000"
+                    ROW_EVEN = "background-color: #ffffff; color: #000000"
+                    GREEN  = "background-color: #c8f0c8; color: #1a5c1a; font-weight: bold"
+                    ORANGE = "background-color: #ffe5a0; color: #7a4f00; font-weight: bold"
+                    RED    = "background-color: #f0c8c8; color: #7a1a1a; font-weight: bold"
+                    DIM    = "color: #999999"
+
+                    def style_row(row):
+                        base = ROW_ODD if round_parity.get(row["Ronde"], 0) else ROW_EVEN
+                        pb, pn, pk = row["Victoire Blancs"], row["Nulle"], row["Victoire Noirs"]
+                        best = max(pb, pn, pk)
+                        if best == pb:
+                            wb, wn, wk = GREEN, ORANGE, RED
+                        elif best == pn:
+                            wb, wn, wk = ORANGE, GREEN, ORANGE
+                        else:
+                            wb, wn, wk = RED, ORANGE, GREEN
+                        return [base, base, base, wb, wn, wk]
+
+                    styled = (
+                        display_df.style
+                        .apply(style_row, axis=1)
+                        .format({
+                            "Victoire Blancs": "{:.1%}",
+                            "Nulle": "{:.1%}",
+                            "Victoire Noirs": "{:.1%}",
+                        })
                     )
+                    st.dataframe(styled, hide_index=True, use_container_width=True)
 
         except Exception as e:
             st.error(f"Erreur d'affichage : {e}")

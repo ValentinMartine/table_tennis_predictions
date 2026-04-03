@@ -54,7 +54,9 @@ def load_matches_from_db() -> pd.DataFrame:
             COALESCE(ir1.rank, 9999) AS ittf_rank_p1,
             COALESCE(ir2.rank, 9999) AS ittf_rank_p2,
             COALESCE(wr1.rank, 9999) AS wtt_rank_p1,
-            COALESCE(wr2.rank, 9999) AS wtt_rank_p2
+            COALESCE(wr2.rank, 9999) AS wtt_rank_p2,
+            p1.hand         AS hand_p1,
+            p2.hand         AS hand_p2
         FROM matches m
         JOIN competitions c  ON m.competition_id = c.id
         JOIN players p1      ON m.player1_id = p1.id
@@ -191,6 +193,30 @@ def _add_ranking_trajectory(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _add_time_weights(df: pd.DataFrame, halflife_days: int = 365) -> pd.DataFrame:
+    """
+    Calcule des poids exponentiels basés sur la récence des matchs.
+    Un match d'il y a 1 an (halflife) aura moitié moins de poids qu'un match d'aujourd'hui.
+    """
+    df = df.copy()
+    if df.empty:
+        df["sample_weight"] = 1.0
+        return df
+    
+    max_date = df["played_at"].max()
+    days_diff = (max_date - df["played_at"]).dt.days
+    
+    # f(t) = exp(-log(2) * t / halflife)
+    # df["sample_weight"] = np.exp(-np.log(2) * days_diff / halflife_days)
+    df["sample_weight"] = 1.0
+    
+    # Normalisation pour que la moyenne soit 1.0 (optionnel mais recommandé)
+    df["sample_weight"] = df["sample_weight"] / df["sample_weight"].mean()
+    
+    logger.info(f"Poids temporels calculés (halflife={halflife_days}j) : min={df['sample_weight'].min():.3f}, max={df['sample_weight'].max():.3f}")
+    return df
+
+
 def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
     with open(config_path) as f:
         config = yaml.safe_load(f)
@@ -234,9 +260,28 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
 
     df["rank_diff"] = df["ittf_rank_p1"] - df["ittf_rank_p2"]
     df["wtt_rank_diff"] = df["wtt_rank_p1"] - df["wtt_rank_p2"]
+    
+    # Log-rank transformations
+    df["log_ittf_rank_p1"] = np.log1p(df["ittf_rank_p1"])
+    df["log_ittf_rank_p2"] = np.log1p(df["ittf_rank_p2"])
+    df["log_rank_diff"] = df["log_ittf_rank_p1"] - df["log_ittf_rank_p2"]
+    df["log_wtt_rank_p1"] = np.log1p(df["wtt_rank_p1"])
+    df["log_wtt_rank_p2"] = np.log1p(df["wtt_rank_p2"])
+
+    # Style features
+    df["is_p1_lefty"] = (df["hand_p1"] == "L").astype(int)
+    df["is_p2_lefty"] = (df["hand_p2"] == "L").astype(int)
+    df["is_opposite_hand"] = ((df["hand_p1"].notna()) & (df["hand_p2"].notna()) & (df["hand_p1"] != df["hand_p2"])).astype(int)
 
     logger.info("Calcul de la trajectoire de classement ITTF...")
     df = _add_ranking_trajectory(df)
+
+    logger.info("Calcul des poids temporels (Time-Decay)...")
+    df = _add_time_weights(df, halflife_days=feat_cfg.get("time_decay_halflife", 365))
+
+    # Nouvelles features pour gérer l'incertitude
+    df["is_p1_unknown"] = ((df["ittf_rank_p1"] >= 9999) & (df["matches_played_p1"] < 10)).astype(int)
+    df["is_p2_unknown"] = ((df["ittf_rank_p2"] >= 9999) & (df["matches_played_p2"] < 10)).astype(int)
 
     # Target : 1 si P1 gagne, 0 sinon
     df["target"] = (df["winner"] == 1).astype(int)
@@ -256,20 +301,27 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
         "close_sets_rate_p1", "close_sets_rate_p2",
         # Fatigue & repos
         "rest_hours_p1", "rest_hours_p2", "fatigue_p1", "fatigue_p2",
-        # Rankings statiques
+        # Rankings
         "ittf_rank_p1", "ittf_rank_p2", "rank_diff",
+        "log_ittf_rank_p1", "log_ittf_rank_p2", "log_rank_diff",
         "wtt_rank_p1", "wtt_rank_p2", "wtt_rank_diff",
+        "log_wtt_rank_p1", "log_wtt_rank_p2",
         # Trajectoire de classement (dynamique)
         "rank_velocity_p1", "rank_velocity_p2", "rank_velocity_diff",
         "rank_stability_p1", "rank_stability_p2",
         # Âge
         "age_p1", "age_p2", "age_diff",
+        # Style et Hand
+        "is_p1_lefty", "is_p2_lefty", "is_opposite_hand",
+        # Expérience et Inconnu
+        "is_p1_unknown", "is_p2_unknown", "matches_played_p1", "matches_played_p2",
         # Cotes bookmaker
         "has_odds", "implied_prob_p1",
     ]
     META_COLS = [
         "match_id", "played_at", "competition_id", "odds_p1", "odds_p2", "target",
         "player1_id", "player2_id", "elo_p1", "elo_p2", "elo_intl_p1", "elo_intl_p2",
+        "sample_weight",
     ]
 
     available = [c for c in FEATURE_COLS + META_COLS if c in df.columns]

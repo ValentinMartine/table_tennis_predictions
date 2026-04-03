@@ -36,28 +36,86 @@ API_BASE = "https://api.sofascore.com/api/v1"
 
 # IDs Sofascore vérifiés (stables — une seule compétition, pas par édition)
 TOURNAMENT_IDS: dict[str, dict] = {
-    "setka_cup":        {"tournament_id": 15004, "name": "Setka Cup"},
-    "liga_pro":         {"tournament_id": 15006, "name": "Liga Pro"},
-    "liga_pro_belarus": {"tournament_id": 31462, "name": "Liga Pro Belarus"},
-    "czech_liga_pro":   {"tournament_id": 19039, "name": "Czech Liga Pro"},
-    "tt_cup_cz":        {"tournament_id": 15005, "name": "TT Cup"},
-    "tt_elite_series":  {"tournament_id": 19041, "name": "TT Elite Series"},
-    "ettu_champions":   {"tournament_id": 2122,  "name": "ETTU Champions League"},
-    "ettu_champions_w": {"tournament_id": 9500,  "name": "ETTU Champions League, Women"},
+    "setka_cup":        {"tournament_ids": [15004], "name": "Setka Cup"},
+    "liga_pro":         {"tournament_ids": [15006], "name": "Liga Pro"},
+    "liga_pro_belarus": {"tournament_ids": [31462], "name": "Liga Pro Belarus"},
+    "czech_liga_pro":   {"tournament_ids": [19039], "name": "Czech Liga Pro"},
+    "tt_cup_cz":        {"tournament_ids": [15005], "name": "TT Cup"},
+    "tt_elite_series":  {"tournament_ids": [19041], "name": "TT Elite Series"},
+    "ettu_champions":   {"tournament_ids": [2122],  "name": "ETTU Champions League"},
+    "ettu_champions_w": {"tournament_ids": [9500],  "name": "ETTU Champions League, Women"},
+
+    # ── WTT Grand Smash (MS + WS + doubles) ─────────────────────────────
+    "wtt_grand_smash": {
+        "tournament_ids": [
+            19419, 19421, 19420, 19422, 19423,  # Singapore Smash (MS/WS/MD/WD/XD)
+            23705, 23707, 23723, 23726, 23727,  # China Smash
+            22171, 22173,                        # Saudi Smash
+        ],
+        "name": "WTT Grand Smash",
+    },
+
+    # ── WTT Finals (ex Cup Finals) ───────────────────────────────────────
+    "wtt_finals": {
+        "tournament_ids": [31441, 31442, 31444],  # MS, WS, XD
+        "name": "WTT Finals",
+    },
+
+    # ── WTT Champions (city-specific, chaque édition = un ID) ───────────
+    "wtt_champions": {
+        "tournament_ids": [
+            19575, 21102, 21396, 21960, 23838,  # Xinxiang, Macao, Frankfurt, Incheon, Montpellier
+            19139,                               # Doha
+        ],
+        "name": "WTT Champions",
+    },
+
+    # ── WTT Star Contenders ───────────────────────────────────────────────
+    "wtt_star_contenders": {
+        "tournament_ids": [
+            20286,  # Bangkok
+            21246,  # Lanzhou
+            20039,  # Goa
+            31001,  # Muscat
+        ],
+        "name": "WTT Star Contenders",
+    },
+
+    # ── ITTF World Cup ────────────────────────────────────────────────────
+    "world_cup": {
+        "tournament_ids": [1966, 1964],  # MS, WS
+        "name": "World Cup",
+    },
+
+    # ── Grandes compétitions ITTF (IDs Sofascore stables) ────────────────
+    "world_championships": {
+        "tournament_ids": [11579, 11585, 11580, 11587, 11586,  # MS, WS, MD, XD, WD (old)
+                           26637, 26638],                       # ITTF World Championships Finals MS/WS
+        "name": "World Championships",
+    },
+    "team_world_cup": {
+        "tournament_ids": [21977, 21978, 21999, 22000],
+        "name": "Team World Championships",
+    },
+    "olympic_games": {
+        "tournament_ids": [564, 565, 1121, 1123, 17047],
+        "name": "Olympic Games",
+    },
 }
 
 # Patterns pour les compétitions sans ID stable (nouvelles editions chaque tournoi)
 # clé = competition_id → pattern à chercher dans uniqueTournament.name
-# Pour les compétitions à ID variable, on filtre par sous-chaîne dans le nom du tournoi.
 # Un seul pattern par competition_id → prend le premier match trouvé.
 NAME_PATTERNS: dict[str, list[str]] = {
-    "wtt_champions":        ["WTT Champions", "WTT Singapore Smash", "WTT Macao"],
-    "wtt_star_contenders":  ["WTT Star Contender"],
+    # WTT Contenders : beaucoup de villes, fetchés par date
     "wtt_contenders":       ["WTT Contender"],
-    "wtt_cup_finals":       ["WTT Cup Finals", "World Tour Cup Finals"],
     "wtt_feeder":           ["WTT Feeder"],
     "world_championships":  ["World Championships", "World Team Championships"],
     "european_championships": ["European Team Championships", "European Championships"],
+    # Fallback si IDs manquants pour Champions/Star Contenders
+    "wtt_champions":        ["WTT Champions", "WTT Singapore Smash", "WTT Macao"],
+    "wtt_star_contenders":  ["WTT Star Contender"],
+    "wtt_cup_finals":       ["WTT Cup Finals", "World Tour Cup Finals"],
 }
 
 _CFFI_HEADERS = {
@@ -149,21 +207,38 @@ class SofascoreScraper(BaseScraper):
         start_date: datetime,
         end_date: datetime,
     ) -> list[RawMatch]:
-        t_id = meta["tournament_id"]
+        # Supporte un ou plusieurs IDs de tournoi (ex: disciplines séparées)
+        t_ids = meta.get("tournament_ids") or [meta.get("tournament_id")]
         matches: list[RawMatch] = []
 
+        for t_id in t_ids:
+            matches.extend(
+                self._scrape_single_tournament(competition_id, t_id, start_date, end_date)
+            )
+
+        logger.info(f"[sofascore] {competition_id}: {len(matches)} matchs")
+        return matches
+
+    def _scrape_single_tournament(
+        self,
+        competition_id: str,
+        t_id: int,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> list[RawMatch]:
+        matches: list[RawMatch] = []
         try:
             data = self._cffi_get(f"{API_BASE}/unique-tournament/{t_id}/seasons")
             seasons = data.get("seasons", [])
         except Exception as e:
-            logger.error(f"Sofascore seasons error pour {competition_id}: {e}")
+            logger.error(f"Sofascore seasons error pour {competition_id} (id={t_id}): {e}")
             return []
 
         for season in seasons:
             season_id = season.get("id")
             year = season.get("year", "")
             try:
-                if year and int(str(year)[:4]) < start_date.year - 1:
+                if year and int(str(year)[:4]) < start_date.year - 2:
                     continue
             except ValueError:
                 pass
@@ -204,7 +279,6 @@ class SofascoreScraper(BaseScraper):
                     break
                 page += 1
 
-        logger.info(f"[sofascore] {competition_id}: {len(matches)} matchs")
         return matches
 
     # ------------------------------------------------------------------

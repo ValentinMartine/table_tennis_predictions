@@ -24,37 +24,45 @@ FEATURE_COLS = [
     "form_p1", "form_p2", "form_diff",
     # Sets : volume + dominance
     "avg_sets_p1", "avg_sets_p2",
-    "avg_set_margin_p1", "avg_set_margin_p2", "set_margin_diff",
     "close_sets_rate_p1", "close_sets_rate_p2",
     # Fatigue & repos
     "rest_hours_p1", "rest_hours_p2", "fatigue_p1", "fatigue_p2",
-    # Rankings statiques ITTF & WTT
+    # Rankings
     "ittf_rank_p1", "ittf_rank_p2", "rank_diff",
+    "log_ittf_rank_p1", "log_ittf_rank_p2", "log_rank_diff",
     "wtt_rank_p1", "wtt_rank_p2", "wtt_rank_diff",
-    # Trajectoire de classement (dynamique)
+    "log_wtt_rank_p1", "log_wtt_rank_p2",
+    # Trajectoire de classement
     "rank_velocity_p1", "rank_velocity_p2", "rank_velocity_diff",
     "rank_stability_p1", "rank_stability_p2",
     # Âge
     "age_p1", "age_p2", "age_diff",
+    # Style
+    "is_p1_lefty", "is_p2_lefty", "is_opposite_hand",
+    # Joueur inconnu / peu de données
+    "is_p1_unknown", "is_p2_unknown",
     # Cotes bookmaker
     "has_odds", "implied_prob_p1",
 ]
 
 
 class LGBMModel:
-    def __init__(self, config_path: str = "config/settings.yaml"):
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-        lgbm_cfg = config.get("models", {}).get("lgbm", {})
+    def __init__(self, config_path: str = "config/settings.yaml", params: dict = None):
+        if params is None:
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+            params = config.get("models", {}).get("lgbm", {})
 
         self.base_model = LGBMClassifier(
-            n_estimators=lgbm_cfg.get("n_estimators", 500),
-            learning_rate=lgbm_cfg.get("learning_rate", 0.05),
-            max_depth=lgbm_cfg.get("max_depth", 6),
-            num_leaves=lgbm_cfg.get("num_leaves", 31),
-            min_child_samples=lgbm_cfg.get("min_child_samples", 20),
-            subsample=lgbm_cfg.get("subsample", 0.8),
-            colsample_bytree=lgbm_cfg.get("colsample_bytree", 0.8),
+            n_estimators=params.get("n_estimators", 500),
+            learning_rate=params.get("learning_rate", 0.05),
+            max_depth=params.get("max_depth", 6),
+            num_leaves=params.get("num_leaves", 31),
+            min_child_samples=params.get("min_child_samples", 20),
+            subsample=params.get("subsample", 0.8),
+            colsample_bytree=params.get("colsample_bytree", 0.8),
+            reg_alpha=params.get("reg_alpha", 0.0),
+            reg_lambda=params.get("reg_lambda", 0.0),
             random_state=42,
             verbose=-1,
         )
@@ -75,17 +83,23 @@ class LGBMModel:
     def fit(self, df_train: pd.DataFrame, df_val: pd.DataFrame = None) -> None:
         X = self._get_features(df_train)
         y = df_train["target"].values
+        weights = df_train["sample_weight"].values if "sample_weight" in df_train.columns else None
+        
         logger.info(f"Entraînement LightGBM sur {len(X)} exemples, {len(self.feature_cols)} features")
+        if weights is not None:
+            logger.info("Utilisation de poids d'entraînement (Time-Decay)")
+            
         if df_val is not None:
             from sklearn.frozen import FrozenEstimator
-            self.base_model.fit(X, y)
+            self.base_model.fit(X, y, sample_weight=weights)
             X_val = self._get_features(df_val)
             y_val = df_val["target"].values
             self.model = CalibratedClassifierCV(FrozenEstimator(self.base_model), method="isotonic")
+            # Note: la calibration isotonique peut aussi prendre des poids si besoin
             self.model.fit(X_val, y_val)
             logger.info(f"Calibration isotonique sur val set ({len(X_val)} exemples)")
         else:
-            self.model.fit(X, y)
+            self.model.fit(X, y, sample_weight=weights)
         self._is_fitted = True
         logger.info("Entraînement terminé")
 

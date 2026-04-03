@@ -5,6 +5,7 @@ from datetime import datetime
 
 import yaml
 from loguru import logger
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..database.db import get_session
@@ -84,11 +85,25 @@ def insert_matches(raw_matches: list[RawMatch], config: dict, batch_size: int = 
                 .all()
             }
             for raw in batch:
-                if raw.external_id in existing_ids:
+                if raw.external_id and raw.external_id in existing_ids:
                     continue
+                
                 comp = _get_or_create_competition(session, raw.competition_id, config)
                 p1 = _get_or_create_player(session, raw.player1_name, raw.player1_country)
                 p2 = _get_or_create_player(session, raw.player2_name, raw.player2_country)
+                
+                # Double check by players/date/comp to catch duplicates with different/missing external_ids
+                day = raw.played_at.date()
+                redundant = session.query(Match.id).filter(
+                    Match.player1_id == p1.id,
+                    Match.player2_id == p2.id,
+                    Match.competition_id == comp.id,
+                    text("date(played_at) = :d")
+                ).params(d=str(day)).first()
+                
+                if redundant:
+                    continue
+
                 match = Match(
                     external_id=raw.external_id,
                     competition_id=comp.id,
@@ -152,9 +167,18 @@ def run_scraping(
         if not scraper:
             logger.warning(f"Scraper inconnu : {source}")
             continue
-        raw_matches = scraper.scrape_all_competitions(comp_ids, start_date, end_date)
-        n = insert_matches(raw_matches, config)
-        stats[source] = n
-        logger.info(f"{source} : {n} nouveaux matchs insérés")
+        total_inserted = 0
+        for comp_id in comp_ids:
+            try:
+                logger.info(f"[{source}] Scraping {comp_id}...")
+                matches = scraper.scrape_competition(comp_id, start_date, end_date)
+                logger.info(f"[{source}] {len(matches)} matchs récupérés pour {comp_id}")
+                n = insert_matches(matches, config)
+                logger.info(f"[{source}] {comp_id} : {n} nouveaux matchs insérés")
+                total_inserted += n
+            except Exception as e:
+                logger.error(f"[{source}] Erreur sur {comp_id}: {e}")
+        stats[source] = total_inserted
+        logger.info(f"{source} : {total_inserted} nouveaux matchs insérés au total")
 
     return stats

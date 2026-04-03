@@ -17,6 +17,10 @@ load_dotenv()
 
 def _get_database_url() -> str:
     url = os.getenv("DATABASE_URL", "sqlite:///data/tt_matches.db")
+    # Fix Render/Heroku postgres:// connections mapping to postgresql://
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+
     # Résolution du chemin relatif pour SQLite
     if url.startswith("sqlite:///") and not url.startswith("sqlite:////"):
         relative_path = url[len("sqlite:///"):]

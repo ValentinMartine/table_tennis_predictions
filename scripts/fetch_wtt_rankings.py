@@ -1,17 +1,18 @@
 """
-Récupère le classement WTT officiel (SEN_SINGLES) et l'insère en DB.
+Récupère le classement WTT officiel (SEN_SINGLES et SEN_SINGLES_W) et l'insère en DB.
 
-Endpoint : GET https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES.json
-Réponse  : {"Result": [{"IttfId": "137237", "PlayerName": "LIN Shidong", "RankingPosition": "1",
-                         "RankingPointsYTD": "5905", "RankingYear": "2026", "RankingWeek": "13", ...}]}
+Endpoints : 
+- Hommes (M) : https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES.json
+- Femmes (W) : https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES_W.json
 
 Usage :
     python scripts/fetch_wtt_rankings.py
     python scripts/fetch_wtt_rankings.py --dry-run
+    python scripts/fetch_wtt_rankings.py --gender W
 """
 import argparse
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -28,7 +29,10 @@ try:
 except ImportError:
     _HAS_CURL_CFFI = False
 
-API_URL = "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES.json"
+API_URLS = {
+    "M": "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES.json",
+    "W": "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES_W.json"
+}
 
 _CFFI_HEADERS = {
     "Accept": "application/json, text/plain, */*",
@@ -37,14 +41,14 @@ _CFFI_HEADERS = {
 }
 
 
-def fetch_wtt_rankings() -> list[dict]:
+def fetch_wtt_rankings(gender: str) -> list[dict]:
     """Télécharge le classement WTT depuis l'API officielle."""
     if not _HAS_CURL_CFFI:
         raise RuntimeError("curl-cffi requis. Installez : pip install curl-cffi")
 
     session = cffi_requests.Session(impersonate="chrome120")
     session.headers.update(_CFFI_HEADERS)
-    resp = session.get(API_URL, timeout=20)
+    resp = session.get(API_URLS[gender], timeout=20)
     resp.raise_for_status()
     data = resp.json()
     return data.get("Result", [])
@@ -123,8 +127,9 @@ def insert_rankings(records: list[dict], dry_run: bool = False) -> tuple[int, in
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch WTT rankings (SEN_SINGLES)")
+    parser = argparse.ArgumentParser(description="Fetch WTT rankings")
     parser.add_argument("--dry-run", action="store_true", help="Affiche sans écrire en DB")
+    parser.add_argument("--gender", choices=["M", "W", "both"], default="both", help="Sexe à scrapper")
     args = parser.parse_args()
 
     logger.remove()
@@ -132,29 +137,33 @@ def main():
 
     init_db()
 
-    logger.info("Téléchargement du classement WTT...")
-    try:
-        records = fetch_wtt_rankings()
-    except Exception as e:
-        logger.error(f"Erreur lors du téléchargement : {e}")
-        sys.exit(1)
+    genders = ["M", "W"] if args.gender == "both" else [args.gender]
 
-    logger.info(f"{len(records)} joueurs récupérés depuis l'API WTT")
-    if records:
-        sample = records[0]
+    for g in genders:
+        label = "Hommes" if g == "M" else "Femmes"
+        logger.info(f"Téléchargement du classement WTT ({label})...")
+        try:
+            records = fetch_wtt_rankings(g)
+        except Exception as e:
+            logger.error(f"Erreur lors du téléchargement ({label}) : {e}")
+            continue
+
+        logger.info(f"{len(records)} joueurs récupérés depuis l'API WTT ({label})")
+        if records:
+            sample = records[0]
+            logger.info(
+                f"Snapshot : semaine {sample.get('RankingWeek')}/{sample.get('RankingYear')} "
+                f"| #1 : {sample.get('PlayerName')} ({sample.get('RankingPointsYTD')} pts)"
+            )
+
+        inserted, skipped, no_player = insert_rankings(records, dry_run=args.dry_run)
+
         logger.info(
-            f"Snapshot : semaine {sample.get('RankingWeek')}/{sample.get('RankingYear')} "
-            f"| #1 : {sample.get('PlayerName')} ({sample.get('RankingPointsYTD')} pts)"
+            f"=== RÉSULTAT ({label}) ===\n"
+            f"  Insérés         : {inserted}\n"
+            f"  Déjà présents   : {skipped}\n"
+            f"  Sans joueur DB  : {no_player}"
         )
-
-    inserted, skipped, no_player = insert_rankings(records, dry_run=args.dry_run)
-
-    logger.info(
-        f"\n=== RÉSULTAT ===\n"
-        f"  Insérés         : {inserted}\n"
-        f"  Déjà présents   : {skipped}\n"
-        f"  Sans joueur DB  : {no_player}"
-    )
 
 
 if __name__ == "__main__":

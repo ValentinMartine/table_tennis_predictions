@@ -1,6 +1,4 @@
 data/raw/
-data/*.db
-data/*.pkl
 __pycache__/
 chess_src/**/__pycache__/
 scripts/__pycache__/

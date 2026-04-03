@@ -4,14 +4,20 @@ Script : backtesting out-of-sample avec simulation de paris.
 Usage :
     python scripts/backtest.py
     python scripts/backtest.py --model lgbm --bankroll 500
+    python scripts/backtest.py --synthetic-vig 0.05   # cotes Elo simulées si odds NULL
 """
 import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
 from loguru import logger
 
+from src.backtesting.odds_utils import fill_synthetic_odds
 from src.backtesting.simulator import BettingSimulator
 from src.features.pipeline import build_features
 from src.models.lgbm_model import LGBMModel
@@ -24,6 +30,10 @@ def parse_args():
     parser.add_argument("--bankroll", type=float, default=1000.0)
     parser.add_argument("--plot", action="store_true")
     parser.add_argument("--config", default="config/settings.yaml")
+    parser.add_argument(
+        "--synthetic-vig", type=float, default=0.05, metavar="VIG",
+        help="Vig du bookmaker simulé quand les cotes réelles sont absentes (défaut: 0.05)"
+    )
     return parser.parse_args()
 
 
@@ -54,6 +64,20 @@ def main():
 
     df_test = df_test.copy()
     df_test["pred_prob_p1"] = model.predict_proba(df_test)
+
+    # Cotes réelles disponibles
+    n_real = df_test["odds_p1"].notna().sum()
+    n_synthetic = df_test["odds_p1"].isna().sum()
+    logger.info(f"Cotes réelles : {n_real} | sans cotes : {n_synthetic}")
+
+    # Remplir les cotes manquantes avec des cotes synthétiques Elo
+    if n_synthetic > 0:
+        df_test = fill_synthetic_odds(df_test, vig=args.synthetic_vig)
+        n_filled = (df_test["odds_source"] == "synthetic_elo").sum()
+        logger.info(
+            f"Cotes synthétiques (Elo + vig={args.synthetic_vig:.0%}) "
+            f"ajoutées pour {n_filled} matchs"
+        )
 
     # Simulation
     simulator = BettingSimulator(args.config)

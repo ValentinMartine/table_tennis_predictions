@@ -98,6 +98,7 @@ class EloCalculator:
         df = df.sort_values("played_at").copy()
 
         elo_p1_list, elo_p2_list = [], []
+        n1_list, n2_list = [], []
         elo_intl_p1_list, elo_intl_p2_list = [], []
 
         for _, row in df.iterrows():
@@ -114,6 +115,8 @@ class EloCalculator:
 
             elo_p1_list.append(s1.rating)
             elo_p2_list.append(s2.rating)
+            n1_list.append(s1.matches_played)
+            n2_list.append(s2.matches_played)
 
             k1 = self._k_for_state(s1)
             k2 = self._k_for_state(s2)
@@ -147,6 +150,8 @@ class EloCalculator:
 
         df["elo_p1"] = elo_p1_list
         df["elo_p2"] = elo_p2_list
+        df["matches_played_p1"] = n1_list
+        df["matches_played_p2"] = n2_list
         df["elo_diff"] = df["elo_p1"] - df["elo_p2"]
         df["elo_win_prob_p1"] = df.apply(
             lambda r: expected_score(r["elo_p1"], r["elo_p2"]), axis=1

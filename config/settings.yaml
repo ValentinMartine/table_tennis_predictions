@@ -84,6 +84,14 @@ competitions:
       name: "WTT Cup Finals"
       source: sofascore
       priority: 1
+    - id: wtt_grand_smash
+      name: "WTT Grand Smash"
+      source: sofascore
+      priority: 1
+    - id: wtt_finals
+      name: "WTT Finals"
+      source: sofascore
+      priority: 1
     - id: wtt_feeder
       name: "WTT Feeder"
       source: sofascore
@@ -104,6 +112,10 @@ competitions:
       source: sofascore
       priority: 1
       sofascore_tournament_ids: [11579, 11585, 11580, 11587, 11586]  # MS, WS, MD, XD, WD
+    - id: world_cup
+      name: "World Cup"
+      source: sofascore
+      priority: 1
     - id: team_world_cup
       name: "Team World Championships"
       source: sofascore
@@ -190,6 +202,7 @@ features:
     max_age_days: 1825               # fenêtre 5 ans (730 = 2 ans trop court pour WTT)
   rest:
     fatigue_threshold_hours: 48      # <48h entre matchs = fatigue
+  time_decay_halflife: 10000        # Désactivé temporairement (stabilité)
 
 models:
   val_cutoff_date: "2024-01-01"     # train : 2022-2023, val : 2024, test : 2025

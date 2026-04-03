@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 try:
     from sqlalchemy import text
     from src.database.db import engine
+    from src.features.match_features import build_single_match_features
     DB_AVAILABLE = True
 except Exception:
     DB_AVAILABLE = False
@@ -93,20 +94,38 @@ def get_matches_over_time(include_archived: bool = False) -> pd.DataFrame:
 
 
 def get_competition_status() -> pd.DataFrame:
-    """Statut de chaque compétition : dernière date, jours depuis le dernier match."""
+    """Statut de chaque compétition par édition annuelle."""
     return _query("""
-        SELECT c.name AS competition,
+        SELECT c.name || ' ' || strftime('%Y', m.played_at) AS competition,
                c.comp_id,
                c.priority,
                c.comp_type AS type,
-               COUNT(*) AS total_matches,
+               COUNT(m.id) AS total_matches,
                MIN(m.played_at) AS first_match,
-               MAX(m.played_at) AS last_match
+               MAX(m.played_at) AS last_match,
+               c.name AS raw_name
         FROM competitions c
-        LEFT JOIN matches m ON m.competition_id = c.id
-        GROUP BY c.id, c.name, c.comp_id, c.priority, c.comp_type
-        ORDER BY c.priority, c.name
+        JOIN matches m ON m.competition_id = c.id
+        GROUP BY c.id, c.name, c.comp_id, c.priority, c.comp_type, strftime('%Y', m.played_at)
+        ORDER BY last_match DESC
     """)
+
+def get_competition_matches(comp_name: str, year: str) -> pd.DataFrame:
+    """Récupère les matchs pour une édition précise d'un tournoi."""
+    return _query("""
+        SELECT m.played_at, 
+               p1.name AS p1_name, 
+               p2.name AS p2_name, 
+               m.score_p1, 
+               m.score_p2, 
+               m.status
+        FROM matches m
+        JOIN competitions c ON m.competition_id = c.id
+        JOIN players p1 ON m.player1_id = p1.id
+        JOIN players p2 ON m.player2_id = p2.id
+        WHERE c.name = :comp_name AND strftime('%Y', m.played_at) = :year
+        ORDER BY m.played_at DESC
+    """, {"comp_name": comp_name, "year": year})
 
 
 def get_top_players(
@@ -165,6 +184,13 @@ def get_player_countries() -> list[str]:
     if df.empty:
         return []
     return df["country"].tolist()
+
+
+def get_player_id(name: str) -> int | None:
+    df = _query("SELECT id FROM players WHERE name = :name", {"name": name})
+    if df.empty:
+        return None
+    return int(df.iloc[0]["id"])
 
 
 def get_player_names(search: str = "", limit: int = 500) -> list[str]:
@@ -379,6 +405,21 @@ def get_player_ittf_rank(player_name: str) -> int:
     return int(df.iloc[0]["rank"])
 
 
+def get_player_ittf_points(player_name: str) -> float | None:
+    """Dernier nombre de points ITTF/World Ranking connu du joueur."""
+    df = _query("""
+        SELECT ir.points
+        FROM players p
+        JOIN ittf_rankings ir ON ir.player_id = p.id
+        WHERE p.name = :name
+        ORDER BY ir.snapshot_date DESC
+        LIMIT 1
+    """, {"name": player_name})
+    if df.empty or df.iloc[0]["points"] is None:
+        return None
+    return float(df.iloc[0]["points"])
+
+
 def get_player_wtt_rank(player_name: str) -> tuple[int, float | None]:
     """Dernier rang WTT + points YTD connus du joueur. Retourne (rank, points_ytd)."""
     df = _query("""
@@ -449,87 +490,27 @@ def get_player_rank_velocity(player_name: str, window_days: int = 180) -> tuple[
 def get_features_for_prediction(p1_name: str, p2_name: str) -> dict:
     """
     Construit le vecteur de features pour prédire un match entre deux joueurs.
-    Utilise les dernières valeurs disponibles en DB + elo_history.csv.
     """
-    elo_p1 = get_latest_elo(p1_name)
-    elo_p2 = get_latest_elo(p2_name)
-    from src.features.elo import expected_score
-    elo_diff = elo_p1 - elo_p2
-    elo_win_prob = expected_score(elo_p1, elo_p2)
+    pid1 = get_player_id(p1_name)
+    pid2 = get_player_id(p2_name)
+    
+    if not pid1 or not pid2:
+        return {}
 
-    h2h = get_h2h_summary(p1_name, p2_name)
-    h2h_matches = h2h["matches"]
-    h2h_winrate = h2h["p1_wins"] / h2h_matches if h2h_matches >= 1 else 0.5
-    h2h_recent_winrate = h2h_winrate  # approximation
+    rank1 = get_player_ittf_rank(p1_name)
+    rank2 = get_player_ittf_rank(p2_name)
+    wtt1, _ = get_player_wtt_rank(p1_name)
+    wtt2, _ = get_player_wtt_rank(p2_name)
 
-    form_p1 = get_player_form_value(p1_name, 10)
-    form_p2 = get_player_form_value(p2_name, 10)
-
-    rank_p1 = get_player_ittf_rank(p1_name)
-    rank_p2 = get_player_ittf_rank(p2_name)
-    wtt_rank_p1, _ = get_player_wtt_rank(p1_name)
-    wtt_rank_p2, _ = get_player_wtt_rank(p2_name)
-
-    vel_p1, stab_p1 = get_player_rank_velocity(p1_name)
-    vel_p2, stab_p2 = get_player_rank_velocity(p2_name)
-
-    info_p1 = get_player_info(p1_name)
-    info_p2 = get_player_info(p2_name)
-
-    return {
-        # Elo global
-        "elo_diff": elo_diff,
-        "elo_win_prob_p1": elo_win_prob,
-        # Elo international (approximé par l'Elo global en l'absence d'historique séparé)
-        "elo_intl_diff": elo_diff,
-        "elo_intl_win_prob_p1": elo_win_prob,
-        # H2H
-        "h2h_matches": h2h_matches,
-        "h2h_winrate_p1": h2h_winrate,
-        "h2h_recent_winrate_p1": h2h_recent_winrate,
-        # Forme
-        "form_p1": form_p1,
-        "form_p2": form_p2,
-        "form_diff": form_p1 - form_p2,
-        # Sets
-        "avg_sets_p1": 2.0,
-        "avg_sets_p2": 2.0,
-        "avg_set_margin_p1": 2.5,
-        "avg_set_margin_p2": 2.5,
-        "set_margin_diff": 0.0,
-        "close_sets_rate_p1": 0.3,
-        "close_sets_rate_p2": 0.3,
-        # Fatigue
-        "rest_hours_p1": 48.0,
-        "rest_hours_p2": 48.0,
-        "fatigue_p1": 0,
-        "fatigue_p2": 0,
-        # Rankings statiques
-        "ittf_rank_p1": rank_p1,
-        "ittf_rank_p2": rank_p2,
-        "rank_diff": rank_p1 - rank_p2,
-        "wtt_rank_p1": wtt_rank_p1,
-        "wtt_rank_p2": wtt_rank_p2,
-        "wtt_rank_diff": wtt_rank_p1 - wtt_rank_p2,
-        # Trajectoire de classement
-        "rank_velocity_p1": vel_p1,
-        "rank_velocity_p2": vel_p2,
-        "rank_velocity_diff": vel_p1 - vel_p2,
-        "rank_stability_p1": stab_p1,
-        "rank_stability_p2": stab_p2,
-        # Âge
-        "age_p1": info_p1["age"],
-        "age_p2": info_p2["age"],
-        "age_diff": info_p1["age"] - info_p2["age"],
-        # Cotes (has_odds sera mis à 1 par app.py quand l'utilisateur saisit des cotes)
-        "has_odds": 0,
-        "implied_prob_p1": elo_win_prob,
-        # Infos complémentaires pour affichage (préfixe _ = non utilisé par le modèle)
-        "_elo_p1": elo_p1,
-        "_elo_p2": elo_p2,
-        "_p1_name": p1_name,
-        "_p2_name": p2_name,
-    }
+    feats = build_single_match_features(pid1, pid2, rank1, rank2, wtt1, wtt2)
+    
+    # On rajoute les noms pour l'affichage dans le dashboard
+    feats["_p1_name"] = p1_name
+    feats["_p2_name"] = p2_name
+    feats["_ittf_pts_p1"] = get_player_ittf_points(p1_name)
+    feats["_ittf_pts_p2"] = get_player_ittf_points(p2_name)
+    
+    return feats
 
 
 # ── COMPARAISON MODÈLES ───────────────────────────────────────────────────────
@@ -631,3 +612,17 @@ def get_rolling_roi(window: int = 50) -> pd.DataFrame:
         * 100
     )
     return df
+
+
+def get_pending_bets() -> pd.DataFrame:
+    """Retourne les paris en attente de résultat."""
+    return _query("""
+        SELECT br.placed_at, p1.name AS player1, p2.name AS player2,
+               br.bet_player, br.odds, br.predicted_prob, br.model_edge
+        FROM betting_records br
+        JOIN matches m ON br.match_id = m.id
+        JOIN players p1 ON m.player1_id = p1.id
+        JOIN players p2 ON m.player2_id = p2.id
+        WHERE br.result = 'PENDING' AND br.is_paper = 1
+        ORDER BY br.placed_at DESC
+    """)

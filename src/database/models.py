@@ -24,6 +24,12 @@ class Player(Base):
     gender = Column(String(1))            # M / F
     ittf_id = Column(String, unique=True, nullable=True)
     flashscore_id = Column(String, unique=True, nullable=True)
+    
+    # Nouvelles caractéristiques TT
+    hand = Column(String(1))              # L / R
+    style = Column(String)                # Attack / Defense / All-round
+    grip = Column(String)                 # Shakehand / Penhold
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -125,6 +131,24 @@ class IttfRanking(Base):
 
     __table_args__ = (
         UniqueConstraint("player_id", "snapshot_date", name="uq_ittf_snapshot"),
+    )
+
+
+class WttRanking(Base):
+    """Classement officiel WTT (snapshot hebdomadaire)."""
+
+    __tablename__ = "wtt_rankings"
+
+    id = Column(Integer, primary_key=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    rank = Column(Integer, nullable=False)
+    points_ytd = Column(Float, nullable=True)
+    ranking_year = Column(Integer, nullable=False)
+    ranking_week = Column(Integer, nullable=False)
+    snapshot_date = Column(DateTime, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("player_id", "snapshot_date", name="uq_wtt_snapshot"),
     )
 
 
