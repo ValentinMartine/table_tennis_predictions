@@ -1,0 +1,9 @@
+[lint]
+extend-select = []
+
+[lint.per-file-ignores]
+"scripts/*.py" = ["E402"]
+"dashboard/*.py" = ["E402"]
+"diag_db.py" = ["E722"]
+"consolidate_players.py" = ["E402"]
+"fix_db_ids.py" = ["E402"]

@@ -1,0 +1,37 @@
+# Virtual environment — thousands of files, never relevant
+.venv/
+venv/
+env/
+
+# SQLite database — binary, unreadable, large
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.sqlite
+
+# Trained model binaries
+data/*.pkl
+
+# Large raw CSVs (ITTF historical dumps, 38 MB+)
+data/raw/
+
+# Intermediate data files (generated, not source)
+data/elo_history.csv
+data/calibration_data.csv
+data/lgbm_calibration.csv
+data/xgb_calibration.csv
+data/*_shap_importance.csv
+data/shap_importance.csv
+
+# Debug HTML/screenshots
+data/debug/
+
+# Notebooks (if any)
+notebooks/
+
+# Cache and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/

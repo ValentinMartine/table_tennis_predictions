@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/train_model.py --model xgb --shap)",
+      "Bash(python scripts/train_model.py --model all --shap --calib-on-val)"
+    ]
+  }
+}
