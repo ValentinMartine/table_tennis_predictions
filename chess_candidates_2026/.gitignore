@@ -1,6 +1,0 @@
-data/raw/
-__pycache__/
-chess_src/**/__pycache__/
-scripts/__pycache__/
-*.pyc
-*.pyo
