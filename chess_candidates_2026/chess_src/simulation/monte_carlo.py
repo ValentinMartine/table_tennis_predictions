@@ -4,23 +4,17 @@ from chess_src.models.lgbm_model import ChessLGBMModel
 from chess_src.features.pipeline import ChessFeaturePipeline
 
 TOTAL_ROUNDS = 14
-STATIC_FEATURE_COLS = [
-    "elo_diff",
-    "elo_prob_white",
-    "h2h_matches",
-    "h2h_points_white",
-    "h2h_recent_points_white",
-    "form_white",
-    "form_black",
-    "form_diff",
-]
-CONTEXT_FEATURE_COLS = [
+
+# Context features recomputed dynamically per simulation round
+DYNAMIC_CONTEXT_COLS = {
     "white_tournament_points",
     "black_tournament_points",
     "tournament_points_diff",
-    "round_norm",
-    "is_closing_stage",
-]
+    "white_gap_to_leader",
+    "black_gap_to_leader",
+    "white_last2_score",
+    "black_last2_score",
+}
 
 
 class CandidatesSimulator:
@@ -80,21 +74,33 @@ class CandidatesSimulator:
 
         for _ in range(self.num_simulations):
             sim_scores = history_points.copy()
+            sim_round_history: dict[int, list] = {}  # pid -> [(rnd, score)]
 
             for rnd, rnd_matches in rounds_grouped:
-                # Build feature rows with dynamic tournament context for this round
-                batch = rnd_matches[STATIC_FEATURE_COLS].copy()
-                batch["white_tournament_points"] = (
-                    rnd_matches["white_id"].map(sim_scores).fillna(0.0)
-                )
-                batch["black_tournament_points"] = (
-                    rnd_matches["black_id"].map(sim_scores).fillna(0.0)
-                )
-                batch["tournament_points_diff"] = (
-                    batch["white_tournament_points"] - batch["black_tournament_points"]
-                )
-                batch["round_norm"] = rnd / TOTAL_ROUNDS
-                batch["is_closing_stage"] = int(rnd >= TOTAL_ROUNDS - 3)
+                # Start from fully-computed pipeline features (includes all new features)
+                batch = rnd_matches[self.model.feature_cols].copy()
+
+                # Override dynamic context features with current simulation state
+                w_pts = rnd_matches["white_id"].map(sim_scores).fillna(0.0).values
+                b_pts = rnd_matches["black_id"].map(sim_scores).fillna(0.0).values
+                leader = max(sim_scores.values()) if sim_scores else 0.0
+
+                batch["white_tournament_points"] = w_pts
+                batch["black_tournament_points"] = b_pts
+                batch["tournament_points_diff"] = w_pts - b_pts
+                batch["white_gap_to_leader"] = leader - w_pts
+                batch["black_gap_to_leader"] = leader - b_pts
+
+                def last2(pid):
+                    h = sorted(sim_round_history.get(pid, []), key=lambda x: x[0])
+                    return sum(s for _, s in h[-2:])
+
+                batch["white_last2_score"] = [
+                    last2(int(r["white_id"])) for _, r in rnd_matches.iterrows()
+                ]
+                batch["black_last2_score"] = [
+                    last2(int(r["black_id"])) for _, r in rnd_matches.iterrows()
+                ]
 
                 probs_batch = self.model.predict_proba(batch)
 
@@ -102,8 +108,12 @@ class CandidatesSimulator:
                     p = np.array(probs_batch[i], dtype=np.float64)
                     p = p / p.sum()
                     res = np.random.choice(outcomes, p=p)
-                    sim_scores[int(row["white_id"])] += res
-                    sim_scores[int(row["black_id"])] += 1.0 - res
+                    w_id = int(row["white_id"])
+                    b_id = int(row["black_id"])
+                    sim_scores[w_id] += res
+                    sim_scores[b_id] += 1.0 - res
+                    sim_round_history.setdefault(w_id, []).append((rnd, res))
+                    sim_round_history.setdefault(b_id, []).append((rnd, 1.0 - res))
 
             max_s = max(sim_scores[pid] for pid in p_ids)
             winners = [pid for pid in p_ids if sim_scores[pid] == max_s]
