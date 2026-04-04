@@ -580,7 +580,7 @@ def _match_player(name: str, player_map: pd.DataFrame) -> int | None:
     if len(surname) > 2:
         # Exclure les entrées doubles (noms contenant '/')
         by_surname = player_map[
-            db_names.str.startswith(surname, na=False) &
+            (db_names.str.startswith(surname, na=False) | db_names.str.endswith(surname, na=False)) &
             ~player_map["name"].str.contains("/", na=False)
         ]
         if len(by_surname) == 1:
