@@ -38,11 +38,17 @@ except ImportError:
 API_BASE = "https://api.sofascore.com/api/v1"
 _CFFI_HEADERS = {
     "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
     "Referer": "https://www.sofascore.com/",
     "Origin": "https://www.sofascore.com",
+    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
     "sec-fetch-dest": "empty",
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-site",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
 }
 
 # Compétitions WTT/internationales ciblées (sous-chaînes dans le nom Sofascore)
@@ -58,34 +64,368 @@ TARGET_PATTERNS_ALL = TARGET_PATTERNS_INTL + [
 ]
 
 
+# ── WTT API (source principale — sans protection bot) ────────────────────────
+
+import re
+import requests as _requests
+
+_WTT_CDN   = "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net"
+_WTT_API   = "https://wtt-website-api-prod-3-frontdoor-bddnb2haduafdze9.a01.azurefd.net"
+_WTT_LIVE  = "https://liveeventsapi.worldtabletennis.com"
+_WTT_HDR   = {"Accept": "application/json", "Referer": "https://worldtabletennis.com/"}
+
+# Event types WTT/ITTF à suivre
+_WTT_EVENT_TYPES = {
+    "WTT Champions", "WTT Star Contender", "WTT Contender",
+    "WTT Grand Smash", "WTT Cup Finals", "World Cup", "WTTC",
+    "Grand Smash", "WTT Finals",
+}
+
+# Stage order pour déterminer le prochain tour
+_STAGE_ORDER = ["GRPX", "R16N", "QFNL", "SFNL", "FNLX", "BRNZ"]
+
+
+def _wtt_get(url: str) -> dict | list:
+    try:
+        r = _requests.get(url, headers=_WTT_HDR, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception as e:
+        logger.debug(f"WTT GET {url}: {e}")
+    return {}
+
+
+def _get_active_event_ids(days: int = 30) -> list[dict]:
+    """Retourne les events WTT/ITTF actifs ou à venir dans les `days` prochains jours."""
+    import json as _json
+    today = date.today()
+    cutoff = today + timedelta(days=days)
+
+    try:
+        body = {"custom_filter": _json.dumps([
+            {"name": "StartDateTime", "value": today.year,
+             "custom_handling": "multimatch_year_or_filter", "condition": "or_start"},
+            {"name": "FromStartDate", "value": today.year,
+             "custom_handling": "multimatch_year_or_filter", "condition": "or_end"},
+        ])}
+        r = _requests.post(f"{_WTT_API}/api/eventcalendar", json=body, headers=_WTT_HDR, timeout=12)
+        calendar = r.json()
+    except Exception as e:
+        logger.warning(f"WTT eventcalendar error: {e}")
+        return []
+
+    events = []
+    for group in calendar:
+        for ev in group.get("rows", [ev] if not isinstance(group, dict) else []):
+            etype = ev.get("EventType", "")
+            start_str = ev.get("StartDateTime", "")
+            end_str   = ev.get("EndDateTime", "") or start_str
+            if not start_str:
+                continue
+            try:
+                start = date.fromisoformat(start_str[:10])
+                end   = date.fromisoformat(end_str[:10])
+            except ValueError:
+                continue
+            # Garder les événements en cours ou à venir
+            if end >= today and start <= cutoff:
+                if any(t.lower() in etype.lower() or t.lower() in ev.get("EventName","").lower()
+                       for t in _WTT_EVENT_TYPES):
+                    events.append({
+                        "event_id":   ev.get("EventId"),
+                        "event_name": ev.get("EventName", ""),
+                        "start":      start,
+                        "end":        end,
+                        "type":       etype,
+                    })
+    return events
+
+
+def _extract_winner(match: dict) -> str | None:
+    """Retourne le nom du gagnant depuis un match officiel WTT."""
+    mc = match.get("match_card", {})
+    if not mc:
+        return None
+    comps = mc.get("competitiors", [])
+    if len(comps) < 2:
+        return None
+    try:
+        h_sets, a_sets = map(int, mc.get("overallScores", "0-0").split("-"))
+    except (ValueError, AttributeError):
+        return None
+    if h_sets > a_sets:
+        return comps[0].get("competitiorName")
+    elif a_sets > h_sets:
+        return comps[1].get("competitiorName")
+    return None
+
+
+def _stage_from_code(doc_code: str) -> str:
+    """Extrait le stage (GRPX, R16N, QFNL, SFNL, FNLX) depuis le documentCode."""
+    for stage in _STAGE_ORDER:
+        if stage in doc_code:
+            return stage
+    return "UNKN"
+
+
+def _get_event_schedule_timestamps(event_id) -> dict:
+    """Extrait les timestamps de début de match depuis GetOfficialResult (champ startDateLocal).
+    Returns dict mapping documentCode → Unix timestamp (best-effort).
+    """
+    from datetime import datetime as _dt
+    result = {}
+    data = _wtt_get(
+        f"{_WTT_LIVE}/api/cms/GetOfficialResult?EventId={event_id}&include_match_card=true&take=500"
+    )
+    items = data if isinstance(data, list) else []
+    for item in items:
+        doc = item.get("documentCode", "")
+        if not doc:
+            continue
+        val = item.get("startDateLocal") or (item.get("match_card") or {}).get("matchDateTime", {})
+        if isinstance(val, dict):
+            val = val.get("startDateUTC") or val.get("startDateLocal")
+        if not val:
+            continue
+        try:
+            dt = _dt.fromisoformat(str(val).replace("Z", "+00:00"))
+            result[doc] = int(dt.timestamp())
+        except (ValueError, TypeError):
+            pass
+    if result:
+        logger.debug(f"WTT schedule: {len(result)} timestamps depuis GetOfficialResult")
+    return result
+
+
+def _event_end_timestamp(ev_end: date) -> int:
+    """Convert event end date to a noon Unix timestamp (rough match proxy)."""
+    from datetime import datetime as _dt
+    return int(_dt.combine(ev_end, _dt.min.time().replace(hour=12)).timestamp())
+
+
+def fetch_upcoming_matches_wtt(days: int = 14, gender: str = "M") -> list[dict]:
+    """
+    Source secondaire : matchs WTT/ITTF depuis l'API officielle worldtabletennis.com.
+    Retourne les matchs à venir ou en cours (prochains tours inférables depuis les résultats).
+    gender: "M" = Men's Singles only, "F" = Women's Singles only, "all" = both
+    """
+    gender_keywords = {
+        "M":   ("men",),
+        "F":   ("women",),
+        "all": ("men", "women"),
+    }.get(gender.upper() if gender != "all" else "all", ("men",))
+
+    def _is_target_gender(sub_event_type: str) -> bool:
+        if not sub_event_type:
+            return True  # unknown subtype: keep it to avoid over-filtering
+        stl = sub_event_type.lower()
+        # Skip doubles/mixed explicitly
+        if "double" in stl or "mixed" in stl:
+            return False
+        return any(kw in stl for kw in gender_keywords)
+
+    events = _get_active_event_ids(days)
+    if not events:
+        logger.warning("WTT API: aucun event actif trouvé")
+        return []
+
+    results = []
+    for ev in events:
+        eid = ev["event_id"]
+        ename = ev["event_name"]
+        ev_end = ev["end"]
+        logger.info(f"WTT: analyse event {eid} — {ename}")
+
+        schedule_ts = _get_event_schedule_timestamps(eid)
+
+        official_raw = _wtt_get(
+            f"{_WTT_LIVE}/api/cms/GetOfficialResult?EventId={eid}&include_match_card=true&take=200"
+        )
+        live_raw = _wtt_get(f"{_WTT_LIVE}/api/cms/GetLiveResult?EventId={eid}")
+
+        official = official_raw if isinstance(official_raw, list) else []
+        live     = live_raw     if isinstance(live_raw, list)     else []
+
+        # --- Indexer les official results par documentCode normalisé ---
+        # Normalise: strip trailing dashes (live vs official ont des longueurs différentes)
+        def _norm_doc(d: str) -> str:
+            return d.rstrip("-").rstrip()
+
+        doc_info: dict[str, dict] = {}
+        for m in official:
+            mc  = m.get("match_card") or {}
+            doc = _norm_doc(m.get("documentCode", ""))
+            sub = m.get("subEventType", "")
+            if not doc:
+                continue
+            comps = mc.get("competitiors", [])
+            p1 = comps[0]["competitiorName"] if len(comps) > 0 else ""
+            p2 = comps[1]["competitiorName"] if len(comps) > 1 else ""
+            ts  = schedule_ts.get(m.get("documentCode", ""), 0)
+            doc_info[doc] = {"sub": sub, "p1": p1, "p2": p2, "ts": ts,
+                             "round": mc.get("subEventDescription", "")}
+
+        # --- Matchs en cours ---
+        for m in live:
+            mc  = m.get("match_card") or {}
+            doc = m.get("documentCode", "")
+            sub = m.get("subEventType", "") or mc.get("subEventDescription", "")
+            if not _is_target_gender(sub):
+                continue
+            stage    = _stage_from_code(doc)
+            norm_doc = _norm_doc(doc)
+            # Cross-reference official results pour les noms + timestamp
+            info     = doc_info.get(norm_doc, {})
+            p1 = info.get("p1") or (mc.get("competitiors") or [{}])[0].get("competitiorName", "")
+            p2 = info.get("p2") or (mc.get("competitiors") or [{}, {}])[1].get("competitiorName", "") \
+                if len(mc.get("competitiors") or []) > 1 else ""
+            live_ts  = info.get("ts") or -1
+            rname    = info.get("round") or sub or stage
+            if not p1 or not p2:
+                logger.debug(f"  Live match sans joueurs: {doc}")
+                continue
+            results.append({
+                "event_id":   f"wtt_{eid}_{doc}",
+                "tournament": ename,
+                "p1_name":    p1,
+                "p2_name":    p2,
+                "start_time": live_ts,
+                "status":     "inprogress",
+                "round_name": rname,
+                "group_name": "",
+            })
+
+        # --- Inférer le prochain tour depuis les résultats officiels ---
+        from collections import defaultdict
+        stage_results: dict[tuple, dict[int, str]] = defaultdict(dict)
+        seen_sub_types: set[str] = set()
+        for m in official:
+            mc  = m.get("match_card", {})
+            doc = m.get("documentCode", "")
+            sub = m.get("subEventType", "")
+            seen_sub_types.add(sub)
+            if not mc or not doc:
+                continue
+            if not _is_target_gender(sub):
+                continue
+            stage = _stage_from_code(doc)
+            mn = re.search(r"(\d{4})", doc.replace("000000", ""))
+            if not mn:
+                continue
+            match_num = int(mn.group(1))
+            winner = _extract_winner(m)
+            if winner:
+                stage_results[(sub, stage)][match_num] = winner
+
+        logger.debug(f"  subEventTypes trouvés: {seen_sub_types}")
+
+        # Pour chaque sous-event, trouver le stage courant et construire les demi ou finales
+        sub_stages: dict[str, str] = {}
+        for (sub, stage), wins in stage_results.items():
+            if stage not in _STAGE_ORDER:
+                continue
+            if sub not in sub_stages or _STAGE_ORDER.index(stage) > _STAGE_ORDER.index(sub_stages[sub]):
+                sub_stages[sub] = stage
+
+        for sub, current_stage in sub_stages.items():
+            if current_stage not in _STAGE_ORDER[:-1]:
+                continue
+            next_stage = _STAGE_ORDER[_STAGE_ORDER.index(current_stage) + 1]
+            wins = stage_results.get((sub, current_stage), {})
+            # Bracket standard : (1 vs 2) → SF1, (3 vs 4) → SF2
+            sorted_wins = sorted(wins.items())
+            pairs = [(sorted_wins[i], sorted_wins[i+1])
+                     for i in range(0, len(sorted_wins)-1, 2)
+                     if i+1 < len(sorted_wins)]
+            for (n1, p1), (n2, p2) in pairs:
+                already_live = any(
+                    r["p1_name"] == p1 and r["p2_name"] == p2
+                    for r in results
+                )
+                if not already_live:
+                    inferred_doc = f"{sub}_{next_stage}"
+                    ts = schedule_ts.get(inferred_doc, 0) or _event_end_timestamp(ev_end)
+                    results.append({
+                        "event_id":   f"wtt_{eid}_{sub}_{next_stage}",
+                        "tournament": ename,
+                        "p1_name":    p1,
+                        "p2_name":    p2,
+                        "start_time": ts,
+                        "status":     "notstarted",
+                        "round_name": f"{sub.replace('Singles','').strip()} — {next_stage}",
+                        "group_name": "",
+                    })
+
+    logger.info(f"WTT API: {len(results)} matchs à venir ou en cours")
+    return results
+
+
 # ── Sofascore ────────────────────────────────────────────────────────────────
 
 def _sfetch(session, url: str) -> dict:
     try:
         r = session.get(url, timeout=15)
-        r.raise_for_status()
-        return r.json()
+        if r.status_code != 200:
+            logger.warning(f"Sofascore {r.status_code} — {url} — {r.text[:200]}")
+            return {}
+        data = r.json()
+        if not data.get("events"):
+            logger.debug(f"Sofascore 200 mais events vide — {url}")
+        return data
     except Exception as e:
-        logger.debug(f"Sofascore GET {url}: {e}")
+        logger.warning(f"Sofascore exception — {url} — {e}")
         return {}
 
 
-def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = False) -> list[dict]:
-    """Retourne les matchs non-commencés sur les `days` prochains jours."""
+import time as _time_module
+
+# Cache pour éviter de re-tester Sofascore quand il est bloqué (TTL = 30min)
+_sofascore_blocked_until: float = 0.0
+_SOFASCORE_BLOCK_TTL = 1800  # secondes
+
+
+def _try_sofascore_session():
+    """Tente de créer une session Sofascore. Retourne la session ou None si bloqué."""
+    global _sofascore_blocked_until
+    if _time_module.time() < _sofascore_blocked_until:
+        logger.debug("Sofascore bloqué (cache TTL) — skip")
+        return None
+    if not _HAS_CURL_CFFI:
+        return None
+    for target in ("safari17_0", "firefox133", "chrome131", "safari15_5"):
+        try:
+            s = cffi_requests.Session(impersonate=target)
+            s.headers.update(_CFFI_HEADERS)
+            test = s.get(f"{API_BASE}/sport/table-tennis/scheduled-events/{date.today()}", timeout=8)
+            if test.status_code == 200:
+                logger.info(f"Sofascore accessible avec impersonate={target}")
+                return s
+            logger.debug(f"impersonate={target} → {test.status_code}")
+        except Exception:
+            continue
+    _sofascore_blocked_until = _time_module.time() + _SOFASCORE_BLOCK_TTL
+    logger.warning(f"Sofascore bloqué — fallback WTT API (retry dans {_SOFASCORE_BLOCK_TTL//60}min)")
+    return None
+
+
+def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = False) -> tuple[list[dict], str]:
+    """Retourne (matchs, source) où source est 'sofascore' ou 'wtt_api'."""
     if not _HAS_CURL_CFFI:
         logger.error("curl-cffi requis. pip install curl-cffi")
-        return []
+        return [], "wtt_api"
 
     patterns = TARGET_PATTERNS_ALL if all_leagues else TARGET_PATTERNS_INTL
 
-    # On utilise la session passée en argument ou on en recrée une si besoin (dashboard)
     if session is None:
-        session = cffi_requests.Session(impersonate="chrome120")
-        session.headers.update(_CFFI_HEADERS)
+        session = _try_sofascore_session()
+        if session is None:
+            return fetch_upcoming_matches_wtt(days, gender="M"), "wtt_api"
 
     results = []
     seen_ids = set()
     all_tournament_names: set[str] = set()
+    all_status_types: set[str] = set()
+    total_events = 0
     for d in range(days + 1):
         day = date.today() + timedelta(days=d)
         data = _sfetch(session, f"{API_BASE}/sport/table-tennis/scheduled-events/{day}")
@@ -93,14 +433,23 @@ def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = Fals
             eid = ev.get("id")
             if not eid or eid in seen_ids:
                 continue
-            
+            total_events += 1
             status = ev.get("status", {}).get("type", "")
+            all_status_types.add(status)
             if status not in ("notstarted", "inprogress"):
                 continue
             t = ev.get("tournament", {})
-            tournament_name = t.get("name", "") or t.get("uniqueTournament", {}).get("name", "")
+            sub_name = t.get("name", "")
+            parent_name = t.get("uniqueTournament", {}).get("name", "")
+            # Build display name: "Parent, Sub" when both exist and different
+            if parent_name and sub_name and sub_name not in parent_name:
+                tournament_name = f"{parent_name}, {sub_name}"
+            else:
+                tournament_name = parent_name or sub_name
+            # Match against both names (catches knockout rounds where sub_name = "Round of 16")
+            match_target = f"{parent_name} {sub_name}".lower()
             all_tournament_names.add(tournament_name)
-            if not any(p.lower() in tournament_name.lower() for p in patterns):
+            if not any(p.lower() in match_target for p in patterns):
                 continue
             
             round_name = ev.get("roundInfo", {}).get("name", "")
@@ -128,6 +477,8 @@ def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = Fals
             })
         import time; time.sleep(0.5)
 
+    logger.info(f"Total événements bruts récupérés : {total_events}")
+    logger.info(f"Status types rencontrés : {all_status_types}")
     logger.info(f"Tous les tournois détectés sur Sofascore ({days} jours) :")
     for name in sorted(all_tournament_names):
         matched = any(p.lower() in name.lower() for p in patterns)
@@ -135,7 +486,7 @@ def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = Fals
 
     scope = "toutes compétitions" if all_leagues else "WTT/internationaux"
     logger.info(f"{len(results)} matchs {scope} à venir (prochains {days} jours)")
-    return results
+    return results, "sofascore"
 
 
 def fetch_odds_for_event(session, event_id: int) -> tuple[float, float]:
@@ -185,20 +536,61 @@ def _load_player_map() -> pd.DataFrame:
         return pd.read_sql(query, conn)
 
 
+def _normalize_name(s: str) -> str:
+    """Normalise les caractères Unicode pour la comparaison de noms.
+    Remplace tous les tirets/traits d'union Unicode (catégorie Pd) par un tiret ASCII.
+    """
+    import unicodedata
+    s = unicodedata.normalize("NFC", s)
+    return "".join(
+        "-" if unicodedata.category(ch) == "Pd" else ch
+        for ch in s
+    ).lower().strip()
+
+
 def _match_player(name: str, player_map: pd.DataFrame) -> int | None:
-    """Retourne player_id depuis le nom (exact ou partiel)."""
-    name_lower = name.lower().strip()
-    # Exact match
-    exact = player_map[player_map["name"].str.lower() == name_lower]
+    """Retourne player_id depuis le nom (exact ou partiel).
+    Gère les noms WTT en majuscules (MATSUSHIMA Sora → Matsushima S.)
+    et les noms abrégés (initiale du prénom).
+    """
+    name_lower = _normalize_name(name)
+    db_names = player_map["name"].apply(_normalize_name)
+
+    # 1. Exact match
+    exact = player_map[db_names == name_lower]
     if not exact.empty:
         return int(exact.iloc[0]["id"])
-    # Partial match (last name)
+
     parts = name_lower.split()
-    if parts:
-        last = parts[-1]
-        partial = player_map[player_map["name"].str.lower().str.contains(last, na=False)]
-        if len(partial) == 1:
-            return int(partial.iloc[0]["id"])
+    if not parts:
+        return None
+
+    # 2. Partial match sur le premier token (nom de famille pour noms asiatiques/WTT)
+    surname = parts[0]
+    if len(surname) > 2:
+        # Exclure les entrées doubles (noms contenant '/')
+        by_surname = player_map[
+            db_names.str.startswith(surname, na=False) &
+            ~player_map["name"].str.contains("/", na=False)
+        ]
+        if len(by_surname) == 1:
+            return int(by_surname.iloc[0]["id"])
+        # Si plusieurs, affiner avec l'initiale du prénom
+        if len(by_surname) > 1 and len(parts) > 1:
+            initial = parts[1][0]
+            refined = by_surname[db_names[by_surname.index].str.contains(
+                rf"\b{re.escape(initial)}", na=False, regex=True
+            )]
+            if len(refined) == 1:
+                return int(refined.iloc[0]["id"])
+
+    # 3. Partial match sur le dernier token (noms occidentaux)
+    last = parts[-1]
+    if len(last) > 2:
+        by_last = player_map[db_names.str.contains(last, na=False)]
+        if len(by_last) == 1:
+            return int(by_last.iloc[0]["id"])
+
     return None
 
 
@@ -321,7 +713,7 @@ def main():
     args = parse_args()
 
     logger.remove()
-    logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level} | {message}")
+    logger.add(sys.stderr, level="DEBUG", format="{time:HH:mm:ss} | {level} | {message}")
 
     # Charger le modèle
     model_path = f"data/{args.model}_model.pkl"
@@ -332,11 +724,9 @@ def main():
     player_map = _load_player_map()
     logger.info(f"{len(player_map)} joueurs en DB")
 
-    # Récupérer les matchs à venir
-    session = cffi_requests.Session(impersonate="chrome120")
-    session.headers.update(_CFFI_HEADERS)
-    
-    upcoming = fetch_upcoming_matches(session, days=args.days, all_leagues=args.all_leagues)
+    sfs_session = None
+    upcoming, source = fetch_upcoming_matches(session=None, days=args.days, all_leagues=args.all_leagues)
+    logger.info(f"Source: {source}")
     if not upcoming:
         logger.info("Aucun match WTT/international à venir trouvé")
         return
@@ -370,10 +760,15 @@ def main():
 
         if fav_prob >= args.min_conf:
             import datetime as _dt
-            start = _dt.datetime.fromtimestamp(ev["start_time"]).strftime("%d/%m %H:%M") \
-                    if ev["start_time"] else "?"
+            st_val = ev["start_time"]
+            if st_val == -1:
+                start = "En cours"
+            elif st_val:
+                start = _dt.datetime.fromtimestamp(st_val).strftime("%d/%m %H:%M")
+            else:
+                start = "?"
             # --- NOUVEAU : Enregistrement Paper Betting ---
-            o1, o2 = fetch_odds_for_event(session, ev["event_id"])
+            o1, o2 = fetch_odds_for_event(sfs_session, ev["event_id"]) if sfs_session else (0.0, 0.0)
             
             # On calcule l'edge contre les cotes réelles si dispos
             edge_1 = prob_p1 - (1/o1) if o1 > 0 else 0

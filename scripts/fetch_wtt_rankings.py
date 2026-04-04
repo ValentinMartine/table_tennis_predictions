@@ -29,10 +29,10 @@ try:
 except ImportError:
     _HAS_CURL_CFFI = False
 
-API_URLS = {
-    "M": "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES.json",
-    "W": "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES_W.json"
-}
+# Un seul endpoint retourne les 5 catégories (MS, WS, MDI, WDI, XDI)
+_RANKING_URL = "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/ranking/SEN_SINGLES.json"
+# SubEventCode pour les singles WTT : MS = Men's Singles, WS = Women's Singles
+_WTT_SUB_EVENT = {"M": "MS", "W": "WS"}
 
 _CFFI_HEADERS = {
     "Accept": "application/json, text/plain, */*",
@@ -42,16 +42,16 @@ _CFFI_HEADERS = {
 
 
 def fetch_wtt_rankings(gender: str) -> list[dict]:
-    """Télécharge le classement WTT depuis l'API officielle."""
+    """Télécharge le classement WTT depuis l'API officielle (filtre par SubEventCode)."""
     if not _HAS_CURL_CFFI:
         raise RuntimeError("curl-cffi requis. Installez : pip install curl-cffi")
 
     session = cffi_requests.Session(impersonate="chrome120")
     session.headers.update(_CFFI_HEADERS)
-    resp = session.get(API_URLS[gender], timeout=20)
+    resp = session.get(_RANKING_URL, timeout=20)
     resp.raise_for_status()
-    data = resp.json()
-    return data.get("Result", [])
+    sub_code = _WTT_SUB_EVENT[gender]
+    return [r for r in resp.json().get("Result", []) if r.get("SubEventCode") == sub_code]
 
 
 def _iso_week_monday(year: int, week: int) -> date:

@@ -117,23 +117,40 @@ def render_tab_betting(_load_model):
             st.info("Sélectionne deux joueurs et entre leurs cotes pour calculer l'edge.")
 
     st.divider()
-    st.subheader("Paper Trading (Forward Testing)")
-    st.markdown("Suivi des prédictions en cours sur les matchs à venir (enregistrés via `scripts/predict_upcoming.py`).")
-    
-    pending_df = get_pending_bets()
-    if not pending_df.empty:
+    st.subheader("Prédictions en cours")
+
+    live = st.session_state.get("live_predictions", [])
+    if live:
+        rows = []
+        for p in live:
+            prob_p1 = p["prob_p1"]
+            prob_p2 = p["prob_p2"]
+            edge = p["Edge vs Elo"]
+            rows.append({
+                "Date": p["Date"],
+                "Tournoi": p["Tournoi"],
+                "Joueur 1": p["Joueur 1"],
+                "P(J1)": f"{prob_p1:.1%}",
+                "Joueur 2": p["Joueur 2"],
+                "P(J2)": f"{prob_p2:.1%}",
+                "Favori": p["Favori"],
+                "Confiance": f"{p['Confiance']:.1%}",
+                "Edge vs Elo": f"+{edge:.1%}" if edge >= 0 else f"{edge:.1%}",
+            })
+
+        def _prob_c(val):
+            try:
+                v = float(str(val).replace("%", "")) / 100
+                if v >= 0.65: return "background-color: rgba(46,204,113,0.30); font-weight: bold"
+                if v >= 0.50: return "background-color: rgba(46,204,113,0.12)"
+                if v <= 0.35: return "background-color: rgba(200,80,80,0.20); color: rgba(200,80,80,0.9)"
+                return "color: rgba(200,80,80,0.7)"
+            except Exception: return ""
+
+        df_live = pd.DataFrame(rows).sort_values("Edge vs Elo", ascending=False)
         st.dataframe(
-            pending_df.style.format({
-                "odds": "{:.2f}",
-                "predicted_prob": "{:.1%}",
-                "model_edge": "{:+.1%}"
-            }),
-            use_container_width=True,
-            hide_index=True
+            df_live.style.applymap(_prob_c, subset=["P(J1)", "P(J2)"]),
+            use_container_width=True, hide_index=True,
         )
-        if st.button("Actualiser les résultats (Reconcile)"):
-            import subprocess
-            subprocess.run([sys.executable, "scripts/reconcile_bets.py"])
-            st.rerun()
     else:
-        st.info("Aucun pari en attente. Lancez `scripts/predict_upcoming.py` pour en générer.")
+        st.info("Retourne sur la page principale pour charger les prédictions en cours.")

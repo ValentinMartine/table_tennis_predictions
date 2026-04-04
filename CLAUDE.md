@@ -36,7 +36,8 @@
 
 ## Rankings update commands
 ```bash
-python scripts/fetch_wtt_rankings.py      # WTT men's rankings (week snapshot)
-python scripts/fetch_ittf_rankings.py     # ITTF men's rankings (same WTT API)
-# Women's rankings endpoint not yet found — manual update needed
+python scripts/fetch_wtt_rankings.py            # WTT men + women (SubEventCode MS/WS)
+python scripts/fetch_wtt_rankings.py --gender W # women only
+python scripts/fetch_ittf_rankings.py           # ITTF men + women (SubEventCode MDI/WDI)
+# Both scripts use SEN_SINGLES.json — women's data is under SubEventCode=WS/WDI
 ```

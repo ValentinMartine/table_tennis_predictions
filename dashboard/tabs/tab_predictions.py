@@ -122,13 +122,27 @@ def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
                     except Exception:
                         return ""
 
+                def _prob_color(val):
+                    try:
+                        v = float(str(val).replace("%", "")) / 100
+                        if v >= 0.65:
+                            return "background-color: rgba(46,204,113,0.30); font-weight: bold"
+                        if v >= 0.50:
+                            return "background-color: rgba(46,204,113,0.12)"
+                        if v <= 0.35:
+                            return "background-color: rgba(200,80,80,0.20); color: rgba(200,80,80,0.9)"
+                        return "color: rgba(200,80,80,0.7)"
+                    except Exception:
+                        return ""
+
                 display = pd.DataFrame(predictions).sort_values("Edge vs Elo", ascending=False)
                 display["Confiance"] = display["Confiance"].apply(lambda v: f"{v:.1%}")
                 display["Edge vs Elo"] = display["Edge vs Elo"].apply(lambda v: f"+{v:.1%}" if v >= 0 else f"{v:.1%}")
                 st.dataframe(
                     display.style
                         .applymap(_conf_color, subset=["Confiance"])
-                        .applymap(_edge_color, subset=["Edge vs Elo"]),
+                        .applymap(_edge_color, subset=["Edge vs Elo"])
+                        .applymap(_prob_color, subset=["P(J1)", "P(J2)"]),
                     use_container_width=True, hide_index=True, height=500,
                 )
 
