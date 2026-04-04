@@ -7,7 +7,8 @@ import datetime as _dt
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_cached_matches(days):
-    return fetch_upcoming_matches(days=days, all_leagues=False)
+    matches, _ = fetch_upcoming_matches(days=days, all_leagues=False)
+    return matches
 
 def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
     st.subheader("Prochains matchs WTT / Internationaux")
@@ -59,9 +60,12 @@ def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
 
                 p1_row = player_map[player_map["id"] == p1_id].iloc[0]
                 p2_row = player_map[player_map["id"] == p2_id].iloc[0]
+                p1_wtt = int(p1_row["wtt_rank"]) if int(p1_row["wtt_rank"]) < 9999 else 9999
+                p2_wtt = int(p2_row["wtt_rank"]) if int(p2_row["wtt_rank"]) < 9999 else 9999
                 features = build_features_for_match(
                     p1_id, p2_id,
-                    int(p1_row["ittf_rank"]), int(p2_row["ittf_rank"])
+                    int(p1_row["ittf_rank"]), int(p2_row["ittf_rank"]),
+                    p1_wtt, p2_wtt,
                 )
 
                 prob_p1 = float(upmodel.predict_proba(features)[0])
@@ -71,7 +75,7 @@ def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
 
                 elo_prob_p1 = float(features["elo_win_prob_p1"].iloc[0])
                 elo_fav_prob = elo_prob_p1 if prob_p1 >= 0.5 else (1 - elo_prob_p1)
-                edge_vs_elo = round(fav_prob - elo_fav_prob, 4)
+                delta_model_elo = round(fav_prob - elo_fav_prob, 4)
 
                 if fav_prob >= min_conf:
                     start = _dt.datetime.fromtimestamp(ev["start_time"]).strftime("%d/%m %H:%M") \
@@ -80,12 +84,14 @@ def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
                         "Date": start,
                         "Tournoi": ev["tournament"][:35],
                         "Joueur 1": ev["p1_name"],
+                        "WTT#1": p1_wtt if p1_wtt < 9999 else "-",
                         "P(J1)": f"{prob_p1:.1%}",
                         "Joueur 2": ev["p2_name"],
+                        "WTT#2": p2_wtt if p2_wtt < 9999 else "-",
                         "P(J2)": f"{prob_p2:.1%}",
                         "Favori": fav,
                         "Confiance": fav_prob,
-                        "Edge vs Elo": edge_vs_elo,
+                        "Δ Modèle/Elo": delta_model_elo,
                     })
 
             st.success(f"{len(matches)} matchs internationaux trouvés sur Sofascore pour les {days_ahead} prochains jours.")
@@ -97,14 +103,19 @@ def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
                 )
             else:
                 st.markdown(f"#### Prédictions du modèle {model_choice.upper()}")
+                st.caption(
+                    "**Δ Modèle/Elo** = prob. LGBM(favori) − prob. Elo(favori). "
+                    "Mesure l'écart entre le modèle et sa baseline Elo - ce n'est pas un edge bookmaker. "
+                    "WTT# = classement WTT mondial du joueur."
+                )
 
                 def _conf_color(val):
                     try:
                         v = float(str(val).replace("%", "").replace("+", "")) / 100
                         if v >= 0.75:
-                            return "background-color: rgba(46,204,113,0.25)"
+                            return "background-color: #c6f4d6; color: #155724"
                         if v >= 0.65:
-                            return "background-color: rgba(243,156,18,0.25)"
+                            return "background-color: #fff3cd; color: #856404"
                         return ""
                     except Exception:
                         return ""
@@ -113,11 +124,11 @@ def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
                     try:
                         v = float(str(val).replace("%", "").replace("+", "")) / 100
                         if v >= 0.08:
-                            return "background-color: rgba(46,204,113,0.35)"
+                            return "background-color: #a8e6c3; color: #0d5c2e; font-weight: bold"
                         if v >= 0.04:
-                            return "background-color: rgba(46,204,113,0.15)"
+                            return "background-color: #d4f5e3; color: #155724"
                         if v < 0:
-                            return "color: rgba(200,80,80,0.8)"
+                            return "color: #c0392b; font-weight: bold"
                         return ""
                     except Exception:
                         return ""
@@ -126,23 +137,23 @@ def render_tab_predictions(WTT_CALENDAR_2025_2026, _load_model, fmt_date):
                     try:
                         v = float(str(val).replace("%", "")) / 100
                         if v >= 0.65:
-                            return "background-color: rgba(46,204,113,0.30); font-weight: bold"
+                            return "background-color: #c6f4d6; color: #155724; font-weight: bold"
                         if v >= 0.50:
-                            return "background-color: rgba(46,204,113,0.12)"
+                            return "background-color: #eafaf1; color: #1e8449"
                         if v <= 0.35:
-                            return "background-color: rgba(200,80,80,0.20); color: rgba(200,80,80,0.9)"
-                        return "color: rgba(200,80,80,0.7)"
+                            return "background-color: #fde8e8; color: #c0392b"
+                        return "color: #c0392b"
                     except Exception:
                         return ""
 
-                display = pd.DataFrame(predictions).sort_values("Edge vs Elo", ascending=False)
+                display = pd.DataFrame(predictions).sort_values("Confiance", ascending=False)
                 display["Confiance"] = display["Confiance"].apply(lambda v: f"{v:.1%}")
-                display["Edge vs Elo"] = display["Edge vs Elo"].apply(lambda v: f"+{v:.1%}" if v >= 0 else f"{v:.1%}")
+                display["Δ Modèle/Elo"] = display["Δ Modèle/Elo"].apply(lambda v: f"+{v:.1%}" if v >= 0 else f"{v:.1%}")
                 st.dataframe(
                     display.style
-                        .applymap(_conf_color, subset=["Confiance"])
-                        .applymap(_edge_color, subset=["Edge vs Elo"])
-                        .applymap(_prob_color, subset=["P(J1)", "P(J2)"]),
+                        .map(_conf_color, subset=["Confiance"])
+                        .map(_edge_color, subset=["Δ Modèle/Elo"])
+                        .map(_prob_color, subset=["P(J1)", "P(J2)"]),
                     use_container_width=True, hide_index=True, height=500,
                 )
 

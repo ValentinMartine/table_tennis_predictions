@@ -1,5 +1,5 @@
 """
-Dashboard Streamlit — Table Tennis Prediction
+Dashboard Streamlit - Table Tennis Prediction
 Lancement : streamlit run dashboard/app.py
 """
 import json
@@ -62,7 +62,7 @@ c4.metric("Données jusqu'au", fmt_date(stats['latest_match']) if stats['latest_
 st.divider()
 
 # ── PRÉDICTIONS (page principale) ────────────────────────────────────────────
-st.subheader("Prochains matchs — Prédictions")
+st.subheader("Prochains matchs - Prédictions")
 
 col_cfg1, col_cfg2, col_cfg3, col_btn = st.columns([3, 3, 3, 2])
 with col_cfg1:
@@ -82,15 +82,18 @@ try:
     import datetime as _dt
 
     @st.cache_data(ttl=900, show_spinner=False)
-    def _get_matches(days):
-        return fetch_upcoming_matches(days=days, all_leagues=False)
+    def _get_matches_list(days):
+        result = fetch_upcoming_matches(days=days, all_leagues=False)
+        matches = result[0] if isinstance(result, tuple) else result
+        source = result[1] if isinstance(result, tuple) else "wtt_api"
+        return matches, source
 
     upmodel = _load_model(model_choice)
     if upmodel is None:
         st.warning(f"Modèle {model_choice.upper()} non disponible.")
     else:
         with st.spinner("Recherche des prochains matchs..."):
-            matches, data_source = _get_matches(days_ahead)
+            matches, data_source = _get_matches_list(days_ahead)
         source_label = "Sofascore" if data_source == "sofascore" else "WTT API officielle"
 
         if not matches:

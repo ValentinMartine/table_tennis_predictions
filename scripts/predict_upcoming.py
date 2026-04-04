@@ -64,7 +64,7 @@ TARGET_PATTERNS_ALL = TARGET_PATTERNS_INTL + [
 ]
 
 
-# ── WTT API (source principale — sans protection bot) ────────────────────────
+# ── WTT API (source principale -sans protection bot) ────────────────────────
 
 import re
 import requests as _requests
@@ -241,7 +241,7 @@ def fetch_upcoming_matches_wtt(days: int = 14, gender: str = "M") -> list[dict]:
         eid = ev["event_id"]
         ename = ev["event_name"]
         ev_end = ev["end"]
-        logger.info(f"WTT: analyse event {eid} — {ename}")
+        logger.info(f"WTT: analyse event {eid} -{ename}")
 
         schedule_ts = _get_event_schedule_timestamps(eid)
 
@@ -360,7 +360,7 @@ def fetch_upcoming_matches_wtt(days: int = 14, gender: str = "M") -> list[dict]:
                         "p2_name":    p2,
                         "start_time": ts,
                         "status":     "notstarted",
-                        "round_name": f"{sub.replace('Singles','').strip()} — {next_stage}",
+                        "round_name": f"{sub.replace('Singles','').strip()} -{next_stage}",
                         "group_name": "",
                         "gender":     _gender_from_sub(sub),
                     })
@@ -375,14 +375,14 @@ def _sfetch(session, url: str) -> dict:
     try:
         r = session.get(url, timeout=15)
         if r.status_code != 200:
-            logger.warning(f"Sofascore {r.status_code} — {url} — {r.text[:200]}")
+            logger.warning(f"Sofascore {r.status_code} -{url} -{r.text[:200]}")
             return {}
         data = r.json()
         if not data.get("events"):
-            logger.debug(f"Sofascore 200 mais events vide — {url}")
+            logger.debug(f"Sofascore 200 mais events vide -{url}")
         return data
     except Exception as e:
-        logger.warning(f"Sofascore exception — {url} — {e}")
+        logger.warning(f"Sofascore exception -{url} -{e}")
         return {}
 
 
@@ -397,7 +397,7 @@ def _try_sofascore_session():
     """Tente de créer une session Sofascore. Retourne la session ou None si bloqué."""
     global _sofascore_blocked_until
     if _time_module.time() < _sofascore_blocked_until:
-        logger.debug("Sofascore bloqué (cache TTL) — skip")
+        logger.debug("Sofascore bloqué (cache TTL) -skip")
         return None
     if not _HAS_CURL_CFFI:
         return None
@@ -413,7 +413,7 @@ def _try_sofascore_session():
         except Exception:
             continue
     _sofascore_blocked_until = _time_module.time() + _SOFASCORE_BLOCK_TTL
-    logger.warning(f"Sofascore bloqué — fallback WTT API (retry dans {_SOFASCORE_BLOCK_TTL//60}min)")
+    logger.warning(f"Sofascore bloqué -fallback WTT API (retry dans {_SOFASCORE_BLOCK_TTL//60}min)")
     return None
 
 
@@ -525,9 +525,9 @@ def fetch_odds_for_event(session, event_id: int) -> tuple[float, float]:
 # ── Player lookup ─────────────────────────────────────────────────────────────
 
 def _load_player_map() -> pd.DataFrame:
-    """Charge {player_id, name, ittf_rank, wtt_rank} depuis la DB."""
+    """Charge {player_id, name, gender, ittf_rank, wtt_rank} depuis la DB."""
     query = text("""
-        SELECT p.id, p.name,
+        SELECT p.id, p.name, COALESCE(p.gender, 'M') AS gender,
                COALESCE(ir.rank, 9999) AS ittf_rank,
                COALESCE(wr.rank, 9999) AS wtt_rank
         FROM players p
@@ -756,9 +756,12 @@ def main():
         p1_row = player_map[player_map["id"] == p1_id].iloc[0]
         p2_row = player_map[player_map["id"] == p2_id].iloc[0]
 
+        p1_wtt = int(p1_row["wtt_rank"]) if int(p1_row["wtt_rank"]) < 9999 else 9999
+        p2_wtt = int(p2_row["wtt_rank"]) if int(p2_row["wtt_rank"]) < 9999 else 9999
         features = build_features_for_match(
             p1_id, p2_id,
-            int(p1_row["ittf_rank"]), int(p2_row["ittf_rank"])
+            int(p1_row["ittf_rank"]), int(p2_row["ittf_rank"]),
+            p1_wtt, p2_wtt,
         )
 
         prob_p1 = float(model.predict_proba(features)[0])
@@ -826,18 +829,22 @@ def main():
                             db_session.add(rec)
                             logger.info(f"   [Paper Bet] Enregistré PENDING: {ev['p1_name']} vs {ev['p2_name']} (@{odds}) | Stake: {stake}€ (Kelly)")
 
+            elo_prob_p1 = float(features["elo_win_prob_p1"].iloc[0])
+            elo_fav_prob = elo_prob_p1 if prob_p1 >= 0.5 else (1 - elo_prob_p1)
+            delta_model_elo = fav_prob - elo_fav_prob
             predictions.append({
                 "Date": start,
                 "Tournoi": ev["tournament"][:30],
                 "J1": ev["p1_name"],
+                "WTT#1": p1_wtt if p1_wtt < 9999 else "-",
                 "J2": ev["p2_name"],
+                "WTT#2": p2_wtt if p2_wtt < 9999 else "-",
                 "P(J1)": f"{prob_p1:.1%}",
                 "P(J2)": f"{prob_p2:.1%}",
                 "Favori": fav,
                 "Confiance": f"{fav_prob:.1%}",
-                "Edge": f"{max(edge_1, edge_2):+.1%}" if (o1 > 0 and o2 > 0) else "-",
-                "WTT#J1": int(p1_row["wtt_rank"]) if int(p1_row["wtt_rank"]) < 9999 else "-",
-                "WTT#J2": int(p2_row["wtt_rank"]) if int(p2_row["wtt_rank"]) < 9999 else "-",
+                "Δ Modèle/Elo": f"{delta_model_elo:+.1%}",
+                "Edge(book)": f"{max(edge_1, edge_2):+.1%}" if (o1 > 0 and o2 > 0) else "-",
             })
 
     # Afficher
@@ -847,7 +854,7 @@ def main():
 
     df = pd.DataFrame(predictions).sort_values("Date")
     print(f"\n{'='*100}")
-    print(f"  PREDICTIONS {args.model.upper()} — Matchs WTT/Internationaux ({len(df)} matchs)")
+    print(f"  PREDICTIONS {args.model.upper()} - matchs WTT/internationaux ({len(df)} matchs)")
     print(f"{'='*100}")
     print(df.to_string(index=False))
     print(f"{'='*100}")
