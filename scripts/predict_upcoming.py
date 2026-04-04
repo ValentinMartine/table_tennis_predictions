@@ -506,21 +506,51 @@ def fetch_odds_for_event(session, event_id: int) -> tuple[float, float]:
     data = _sfetch(session, url)
     markets = data.get("markets", [])
     winner_market = next((m for m in markets if m.get("marketName") == "Full time"), markets[0] if markets else None)
-    
+
     if winner_market:
         choices = winner_market.get("choices", [])
         if len(choices) >= 2:
             o1_frac = choices[0].get("fractionalValue")
             o2_frac = choices[1].get("fractionalValue")
-            
+
             def f_to_d(f):
                 try:
                     n, d = f.split('/')
-                    return round(float(n)/float(d) + 1.0, 3)
-                except: return 0.0
-            
+                    return round(float(n) / float(d) + 1.0, 3)
+                except Exception:
+                    return 0.0
+
             return f_to_d(o1_frac), f_to_d(o2_frac)
     return 0.0, 0.0
+
+
+def enrich_with_sofascore_odds(matches: list[dict]) -> list[dict]:
+    """
+    Enrichit les matchs Sofascore avec leurs cotes pré-match.
+    Nécessite que chaque match ait un 'event_id' Sofascore.
+    Ajoute book_odds_p1, book_odds_p2, book_implied_p1, bookmaker='Sofascore'.
+    """
+    session = _try_sofascore_session()
+    if session is None:
+        logger.debug("Sofascore bloqué — pas de cotes disponibles")
+        return matches
+
+    matched = 0
+    for ev in matches:
+        eid = ev.get("event_id")
+        if not eid:
+            continue
+        o1, o2 = fetch_odds_for_event(session, eid)
+        if o1 > 1.0 and o2 > 1.0:
+            ev["book_odds_p1"] = o1
+            ev["book_odds_p2"] = o2
+            ev["bookmaker"] = "Sofascore"
+            raw1, raw2 = 1 / o1, 1 / o2
+            ev["book_implied_p1"] = raw1 / (raw1 + raw2)
+            matched += 1
+
+    logger.info(f"Cotes Sofascore récupérées : {matched}/{len(matches)} matchs")
+    return matches
 
 
 # ── Player lookup ─────────────────────────────────────────────────────────────
@@ -745,8 +775,12 @@ def main():
         return
 
     import os
-    odds_api_key = os.getenv("ODDS_API_KEY", "")
-    upcoming = enrich_with_bookmaker_odds(upcoming, odds_api_key)
+    if source == "sofascore":
+        upcoming = enrich_with_sofascore_odds(upcoming)
+    else:
+        odds_api_key = os.getenv("ODDS_API_KEY", "")
+        if odds_api_key:
+            upcoming = enrich_with_bookmaker_odds(upcoming, odds_api_key)
 
     # Prédire
     predictions = []

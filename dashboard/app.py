@@ -78,7 +78,7 @@ with col_btn:
         st.cache_data.clear()
 
 try:
-    from scripts.predict_upcoming import fetch_upcoming_matches, _load_player_map, _match_player, build_features_for_match
+    from scripts.predict_upcoming import fetch_upcoming_matches, _load_player_map, _match_player, build_features_for_match, enrich_with_sofascore_odds
     from src.scraping.oddsapi import enrich_with_bookmaker_odds
     import datetime as _dt
     import os
@@ -88,9 +88,12 @@ try:
         result = fetch_upcoming_matches(days=days, all_leagues=False)
         matches = result[0] if isinstance(result, tuple) else result
         source = result[1] if isinstance(result, tuple) else "wtt_api"
-        odds_key = os.getenv("ODDS_API_KEY", "")
-        if odds_key:
-            matches = enrich_with_bookmaker_odds(matches, odds_key)
+        if source == "sofascore":
+            matches = enrich_with_sofascore_odds(matches)
+        else:
+            odds_key = os.getenv("ODDS_API_KEY", "")
+            if odds_key:
+                matches = enrich_with_bookmaker_odds(matches, odds_key)
         return matches, source
 
     upmodel = _load_model(model_choice)

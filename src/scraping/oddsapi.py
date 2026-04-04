@@ -131,6 +131,23 @@ def _best_h2h(bookmakers: list[dict], home: str, away: str) -> tuple[float, floa
     return best_h, best_a, best_book
 
 
+def is_table_tennis_available(api_key: str) -> bool:
+    """Vérifie si le tennis de table est disponible sur The Odds API."""
+    if not api_key:
+        return False
+    try:
+        resp = requests.get(
+            f"{ODDS_API_BASE}/sports",
+            params={"apiKey": api_key},
+            timeout=10,
+        )
+        if not resp.ok:
+            return False
+        return any(_SPORT_KEY in s.get("key", "") for s in resp.json())
+    except requests.RequestException:
+        return False
+
+
 def enrich_with_bookmaker_odds(matches: list[dict], api_key: str) -> list[dict]:
     """
     Enrichit chaque match avec book_odds_p1 / book_odds_p2 / book_implied_p1
