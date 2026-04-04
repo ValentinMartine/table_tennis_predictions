@@ -135,7 +135,7 @@ try:
                     start = "?"
                 wtt1 = int(p1_row["wtt_rank"]) if int(p1_row["wtt_rank"]) < 9999 else "—"
                 wtt2 = int(p2_row["wtt_rank"]) if int(p2_row["wtt_rank"]) < 9999 else "—"
-                g = str(p1_row["gender"]) if p1_row["gender"] else "M"
+                g = str(p1_row["gender"]) if "gender" in player_map.columns else ev.get("gender", "M")
                 genre_badge = "🔵" if g == "M" else "🩷"
                 predictions.append({
                     "Date": start,
