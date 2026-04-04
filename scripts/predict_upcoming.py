@@ -28,6 +28,7 @@ from src.models.lgbm_model import LGBMModel
 from src.models.xgb_model import XGBModel
 from src.features.match_features import build_single_match_features
 from src.features.tournament_projections import TournamentSimulator
+from src.scraping.oddsapi import enrich_with_bookmaker_odds
 
 try:
     from curl_cffi import requests as cffi_requests
@@ -701,8 +702,10 @@ def _elo_win_prob(elo1: float, elo2: float) -> float:
 
 def build_features_for_match(p1_id: int, p2_id: int,
                               p1_ittf: int, p2_ittf: int,
-                              p1_wtt: int = 9999, p2_wtt: int = 9999) -> pd.DataFrame:
-    feats = build_single_match_features(p1_id, p2_id, p1_ittf, p2_ittf, p1_wtt, p2_wtt)
+                              p1_wtt: int = 9999, p2_wtt: int = 9999,
+                              odds_p1: float = None, odds_p2: float = None) -> pd.DataFrame:
+    feats = build_single_match_features(p1_id, p2_id, p1_ittf, p2_ittf, p1_wtt, p2_wtt,
+                                        odds_p1=odds_p1, odds_p2=odds_p2)
     return pd.DataFrame([feats])
 
 
@@ -741,6 +744,10 @@ def main():
         logger.info("Aucun match WTT/international à venir trouvé")
         return
 
+    import os
+    odds_api_key = os.getenv("ODDS_API_KEY", "")
+    upcoming = enrich_with_bookmaker_odds(upcoming, odds_api_key)
+
     # Prédire
     predictions = []
     not_found = []
@@ -758,10 +765,13 @@ def main():
 
         p1_wtt = int(p1_row["wtt_rank"]) if int(p1_row["wtt_rank"]) < 9999 else 9999
         p2_wtt = int(p2_row["wtt_rank"]) if int(p2_row["wtt_rank"]) < 9999 else 9999
+        book_o1 = ev.get("book_odds_p1") or None
+        book_o2 = ev.get("book_odds_p2") or None
         features = build_features_for_match(
             p1_id, p2_id,
             int(p1_row["ittf_rank"]), int(p2_row["ittf_rank"]),
             p1_wtt, p2_wtt,
+            odds_p1=book_o1, odds_p2=book_o2,
         )
 
         prob_p1 = float(model.predict_proba(features)[0])

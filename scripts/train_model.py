@@ -88,7 +88,7 @@ def temporal_split(df: pd.DataFrame, config: dict):
     df_test  = df[df["played_at"] >= test_cutoff].copy()
 
     logger.info(
-        f"Split temporel — "
+        f"Split temporel - "
         f"Train : {len(df_train)} (< {val_cutoff.date()}) | "
         f"Val : {len(df_val)} ({val_cutoff.date()} – {test_cutoff.date()}) | "
         f"Test : {len(df_test)} (>= {test_cutoff.date()})"
@@ -137,8 +137,15 @@ def main():
     logger.info("Construction des features...")
     df = build_features(args.config)
     if df.empty:
-        logger.error("Dataset vide — lancez d'abord run_scraper.py")
+        logger.error("Dataset vide - lancez d'abord run_scraper.py")
         return
+
+    odds_coverage = df["has_odds"].mean() if "has_odds" in df.columns else 0.0
+    odds_count = int(df["has_odds"].sum()) if "has_odds" in df.columns else 0
+    logger.info(f"Couverture odds bookmaker : {odds_count}/{len(df)} matchs ({odds_coverage:.1%})")
+    if odds_coverage < 0.05:
+        logger.warning("< 5% des matchs ont des cotes — implied_prob_p1 aura peu d'impact. "
+                       "Lancez store_pre_match_odds.py régulièrement pour accumuler des données.")
 
     logger.info("Sauvegarde de l'historique Elo...")
     save_elo_history(df)
@@ -181,7 +188,7 @@ def main():
         stats_test = evaluate_predictions(df_test["target"], preds_test, f"{model_name} (test)")
         logger.info(f"Val  : {stats_val}")
         logger.info(f"Test : {stats_test}")
-        logger.info(f"Amélioration log_loss vs Elo — val: {elo_stats_val['log_loss'] - stats_val['log_loss']:.4f} | test: {elo_stats_test['log_loss'] - stats_test['log_loss']:.4f}")
+        logger.info(f"Amélioration log_loss vs Elo - val: {elo_stats_val['log_loss'] - stats_val['log_loss']:.4f} | test: {elo_stats_test['log_loss'] - stats_test['log_loss']:.4f}")
 
         model_path = f"data/{model_name}_model.pkl"
         model.save(model_path)

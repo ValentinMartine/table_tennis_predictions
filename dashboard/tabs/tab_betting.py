@@ -125,8 +125,10 @@ def render_tab_betting(_load_model):
         for p in live:
             prob_p1 = p["prob_p1"]
             prob_p2 = p["prob_p2"]
-            edge = p["Edge vs Elo"]
-            rows.append({
+            edge_v = p["edge_value"]
+            edge_l = p["edge_label"]
+            sign = "+" if edge_v >= 0 else ""
+            row = {
                 "Date": p["Date"],
                 "Tournoi": p["Tournoi"],
                 "Joueur 1": p["Joueur 1"],
@@ -135,8 +137,12 @@ def render_tab_betting(_load_model):
                 "P(J2)": f"{prob_p2:.1%}",
                 "Favori": p["Favori"],
                 "Confiance": f"{p['Confiance']:.1%}",
-                "Edge vs Elo": f"+{edge:.1%}" if edge >= 0 else f"{edge:.1%}",
-            })
+                "Edge": f"{sign}{edge_v:.1%} vs {edge_l}",
+            }
+            if p.get("book_odds_p1"):
+                row["Cote J1"] = f"{p['book_odds_p1']:.2f}"
+                row["Cote J2"] = f"{p['book_odds_p2']:.2f}"
+            rows.append(row)
 
         def _prob_c(val):
             try:
@@ -147,9 +153,9 @@ def render_tab_betting(_load_model):
                 return "color: rgba(200,80,80,0.7)"
             except Exception: return ""
 
-        df_live = pd.DataFrame(rows).sort_values("Edge vs Elo", ascending=False)
+        df_live = pd.DataFrame(rows).sort_values("Edge", ascending=False)
         st.dataframe(
-            df_live.style.applymap(_prob_c, subset=["P(J1)", "P(J2)"]),
+            df_live.style.map(_prob_c, subset=["P(J1)", "P(J2)"]),
             use_container_width=True, hide_index=True,
         )
     else:

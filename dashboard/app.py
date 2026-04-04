@@ -79,13 +79,18 @@ with col_btn:
 
 try:
     from scripts.predict_upcoming import fetch_upcoming_matches, _load_player_map, _match_player, build_features_for_match
+    from src.scraping.oddsapi import enrich_with_bookmaker_odds
     import datetime as _dt
+    import os
 
     @st.cache_data(ttl=900, show_spinner=False)
     def _get_matches_list(days):
         result = fetch_upcoming_matches(days=days, all_leagues=False)
         matches = result[0] if isinstance(result, tuple) else result
         source = result[1] if isinstance(result, tuple) else "wtt_api"
+        odds_key = os.getenv("ODDS_API_KEY", "")
+        if odds_key:
+            matches = enrich_with_bookmaker_odds(matches, odds_key)
         return matches, source
 
     upmodel = _load_model(model_choice)
@@ -102,6 +107,7 @@ try:
             player_map = _load_player_map()
             predictions = []
             not_found = []
+            has_book_odds = any(ev.get("book_odds_p1") for ev in matches)
 
             for ev in matches:
                 p1_id = _match_player(ev["p1_name"], player_map)
@@ -112,9 +118,14 @@ try:
 
                 p1_row = player_map[player_map["id"] == p1_id].iloc[0]
                 p2_row = player_map[player_map["id"] == p2_id].iloc[0]
+                book_o1 = ev.get("book_odds_p1") or None
+                book_o2 = ev.get("book_odds_p2") or None
                 features = build_features_for_match(
                     p1_id, p2_id,
-                    int(p1_row["ittf_rank"]), int(p2_row["ittf_rank"])
+                    int(p1_row["ittf_rank"]), int(p2_row["ittf_rank"]),
+                    int(p1_row["wtt_rank"]) if int(p1_row["wtt_rank"]) < 9999 else 9999,
+                    int(p2_row["wtt_rank"]) if int(p2_row["wtt_rank"]) < 9999 else 9999,
+                    odds_p1=book_o1, odds_p2=book_o2,
                 )
 
                 prob_p1 = float(upmodel.predict_proba(features)[0])
@@ -122,9 +133,17 @@ try:
                 fav = ev["p1_name"] if prob_p1 >= 0.5 else ev["p2_name"]
                 fav_prob = max(prob_p1, prob_p2)
 
-                elo_prob_p1 = float(features["elo_win_prob_p1"].iloc[0])
-                elo_fav_prob = elo_prob_p1 if prob_p1 >= 0.5 else (1 - elo_prob_p1)
-                edge_vs_elo = round(fav_prob - elo_fav_prob, 4)
+                # Edge : vs bookmaker si cotes dispo, sinon vs Elo
+                book_implied = ev.get("book_implied_p1")
+                if book_implied is not None:
+                    fav_implied = book_implied if prob_p1 >= 0.5 else (1 - book_implied)
+                    edge_value = round(fav_prob - fav_implied, 4)
+                    edge_label = f"{ev.get('bookmaker', 'Book')}"
+                else:
+                    elo_prob_p1 = float(features["elo_win_prob_p1"].iloc[0])
+                    elo_fav_prob = elo_prob_p1 if prob_p1 >= 0.5 else (1 - elo_prob_p1)
+                    edge_value = round(fav_prob - elo_fav_prob, 4)
+                    edge_label = "Elo"
 
                 st_val = ev["start_time"]
                 if st_val == -1:
@@ -149,14 +168,18 @@ try:
                     "Joueur 2": ev["p2_name"],
                     "Favori": fav,
                     "Confiance": fav_prob,
-                    "Edge vs Elo": edge_vs_elo,
+                    "edge_value": edge_value,
+                    "edge_label": edge_label,
+                    "book_odds_p1": book_o1,
+                    "book_odds_p2": book_o2,
                 })
 
             # Partager avec l'onglet Paris
             st.session_state["live_predictions"] = predictions
 
             filtered = [p for p in predictions if p["Confiance"] >= min_conf]
-            st.caption(f"Source : {source_label} · {len(matches)} matchs trouvés · {len(filtered)} avec confiance ≥ {min_conf:.0%} · {len(not_found)} joueurs non reconnus")
+            odds_info = f" · Cotes : {sum(1 for p in predictions if p.get('book_odds_p1'))}/{len(predictions)} matchs couverts" if has_book_odds else " · Cotes bookmaker : non disponibles (ODDS_API_KEY manquant)"
+            st.caption(f"Source : {source_label} · {len(matches)} matchs trouvés · {len(filtered)} avec confiance ≥ {min_conf:.0%} · {len(not_found)} joueurs non reconnus{odds_info}")
 
             if not filtered:
                 st.info("Aucun match ne correspond aux critères. Baisse la confiance ou augmente l'horizon.")
@@ -187,17 +210,33 @@ try:
                         return ""
                     except Exception: return ""
 
-                display = pd.DataFrame(filtered).sort_values("Edge vs Elo", ascending=False)
+                display = pd.DataFrame(filtered).sort_values("edge_value", ascending=False)
                 display["P(J1)"] = display["prob_p1"].apply(lambda v: f"{v:.1%}")
                 display["P(J2)"] = display["prob_p2"].apply(lambda v: f"{v:.1%}")
                 display["Confiance"] = display["Confiance"].apply(lambda v: f"{v:.1%}")
-                display["Edge vs Elo"] = display["Edge vs Elo"].apply(lambda v: f"+{v:.1%}" if v >= 0 else f"{v:.1%}")
-                cols = ["Date", "G", "Tournoi", "Joueur 1", "WTT1", "P(J1)", "Joueur 2", "WTT2", "P(J2)", "Favori", "Confiance", "Edge vs Elo"]
+
+                # Colonne Edge : préfixe indique la source (book ou Elo)
+                def _fmt_edge(row):
+                    v, lbl = row["edge_value"], row["edge_label"]
+                    sign = "+" if v >= 0 else ""
+                    return f"{sign}{v:.1%} vs {lbl}"
+                display["Edge"] = display.apply(_fmt_edge, axis=1)
+
+                # Cotes bookmaker si disponibles
+                def _fmt_odds(v):
+                    return f"{v:.2f}" if v else "—"
+                if has_book_odds:
+                    display["Cote J1"] = display["book_odds_p1"].apply(_fmt_odds)
+                    display["Cote J2"] = display["book_odds_p2"].apply(_fmt_odds)
+                    cols = ["Date", "G", "Tournoi", "Joueur 1", "WTT1", "P(J1)", "Cote J1", "Joueur 2", "WTT2", "P(J2)", "Cote J2", "Favori", "Confiance", "Edge"]
+                else:
+                    cols = ["Date", "G", "Tournoi", "Joueur 1", "WTT1", "P(J1)", "Joueur 2", "WTT2", "P(J2)", "Favori", "Confiance", "Edge"]
+
                 st.dataframe(
                     display[cols].style
                         .map(_prob_color, subset=["P(J1)", "P(J2)"])
                         .map(_conf_color, subset=["Confiance"])
-                        .map(_edge_color, subset=["Edge vs Elo"]),
+                        .map(_edge_color, subset=["Edge"]),
                     use_container_width=True, hide_index=True, height=500,
                 )
 
