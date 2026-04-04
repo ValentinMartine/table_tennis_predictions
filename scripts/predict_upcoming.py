@@ -219,10 +219,17 @@ def fetch_upcoming_matches_wtt(days: int = 14, gender: str = "M") -> list[dict]:
         if not sub_event_type:
             return True  # unknown subtype: keep it to avoid over-filtering
         stl = sub_event_type.lower()
-        # Skip doubles/mixed explicitly
         if "double" in stl or "mixed" in stl:
             return False
         return any(kw in stl for kw in gender_keywords)
+
+    def _gender_from_sub(sub_event_type: str) -> str:
+        stl = sub_event_type.lower()
+        if "women" in stl:
+            return "F"
+        if "men" in stl:
+            return "M"
+        return "M"  # défaut
 
     events = _get_active_event_ids(days)
     if not events:
@@ -293,6 +300,7 @@ def fetch_upcoming_matches_wtt(days: int = 14, gender: str = "M") -> list[dict]:
                 "status":     "inprogress",
                 "round_name": rname,
                 "group_name": "",
+                "gender":     _gender_from_sub(sub),
             })
 
         # --- Inférer le prochain tour depuis les résultats officiels ---
@@ -354,6 +362,7 @@ def fetch_upcoming_matches_wtt(days: int = 14, gender: str = "M") -> list[dict]:
                         "status":     "notstarted",
                         "round_name": f"{sub.replace('Singles','').strip()} — {next_stage}",
                         "group_name": "",
+                        "gender":     _gender_from_sub(sub),
                     })
 
     logger.info(f"WTT API: {len(results)} matchs à venir ou en cours")
@@ -419,7 +428,7 @@ def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = Fals
     if session is None:
         session = _try_sofascore_session()
         if session is None:
-            return fetch_upcoming_matches_wtt(days, gender="M"), "wtt_api"
+            return fetch_upcoming_matches_wtt(days, gender="all"), "wtt_api"
 
     results = []
     seen_ids = set()
@@ -474,6 +483,7 @@ def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = Fals
                 "status": status,
                 "round_name": round_name,
                 "group_name": group_name,
+                "gender": "M",
             })
         import time; time.sleep(0.5)
 

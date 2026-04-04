@@ -132,8 +132,11 @@ try:
                     start = "?"
                 wtt1 = int(p1_row["wtt_rank"]) if int(p1_row["wtt_rank"]) < 9999 else "—"
                 wtt2 = int(p2_row["wtt_rank"]) if int(p2_row["wtt_rank"]) < 9999 else "—"
+                g = ev.get("gender", "M")
+                genre_badge = "🔵" if g == "M" else "🩷"
                 predictions.append({
                     "Date": start,
+                    "G": genre_badge,
                     "Tournoi": ev["tournament"][:35],
                     "Joueur 1": ev["p1_name"],
                     "WTT1": wtt1,
@@ -186,7 +189,7 @@ try:
                 display["P(J2)"] = display["prob_p2"].apply(lambda v: f"{v:.1%}")
                 display["Confiance"] = display["Confiance"].apply(lambda v: f"{v:.1%}")
                 display["Edge vs Elo"] = display["Edge vs Elo"].apply(lambda v: f"+{v:.1%}" if v >= 0 else f"{v:.1%}")
-                cols = ["Date", "Tournoi", "Joueur 1", "WTT1", "P(J1)", "Joueur 2", "WTT2", "P(J2)", "Favori", "Confiance", "Edge vs Elo"]
+                cols = ["Date", "G", "Tournoi", "Joueur 1", "WTT1", "P(J1)", "Joueur 2", "WTT2", "P(J2)", "Favori", "Confiance", "Edge vs Elo"]
                 st.dataframe(
                     display[cols].style
                         .applymap(_prob_color, subset=["P(J1)", "P(J2)"])
