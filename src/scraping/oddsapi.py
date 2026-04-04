@@ -148,36 +148,67 @@ def is_table_tennis_available(api_key: str) -> bool:
         return False
 
 
-def enrich_with_bookmaker_odds(matches: list[dict], api_key: str) -> list[dict]:
+def _apply_odds_to_matches(matches: list[dict], api_events: list[dict], source_label: str) -> int:
     """
-    Enrichit chaque match avec book_odds_p1 / book_odds_p2 / book_implied_p1
-    depuis The Odds API. Les matchs sans correspondance gardent odds=0.
-
-    Modifie la liste en place et la retourne.
+    Apparie api_events (home/away/odds_home/odds_away) avec matches (p1_name/p2_name).
+    Retourne le nombre de matchs enrichis.
     """
-    api_events = get_table_tennis_odds(api_key)
-    if not api_events:
-        return matches
-
     matched = 0
     for m in matches:
+        if m.get("book_odds_p1"):      # déjà enrichi par une source prioritaire
+            continue
         p1, p2 = m.get("p1_name", ""), m.get("p2_name", "")
         for ev in api_events:
             if _match_event(p1, p2, ev["home"], ev["away"]):
-                # Sens de l'attribution : home→p1 ou home→p2 ?
                 if _name_similarity(p1, ev["home"]) >= _name_similarity(p1, ev["away"]):
                     m["book_odds_p1"] = ev["odds_home"]
                     m["book_odds_p2"] = ev["odds_away"]
                 else:
                     m["book_odds_p1"] = ev["odds_away"]
                     m["book_odds_p2"] = ev["odds_home"]
-                m["bookmaker"] = ev["bookmaker"]
-
+                m["bookmaker"] = source_label
                 o1, o2 = m["book_odds_p1"], m["book_odds_p2"]
                 raw1, raw2 = 1 / o1, 1 / o2
-                m["book_implied_p1"] = raw1 / (raw1 + raw2)  # no-vig
+                m["book_implied_p1"] = raw1 / (raw1 + raw2)
                 matched += 1
                 break
+    return matched
 
-    logger.info(f"Odds bookmaker appariées : {matched}/{len(matches)} matchs")
+
+def enrich_with_bookmaker_odds(matches: list[dict], api_key: str) -> list[dict]:
+    """
+    Enrichit les matchs avec des cotes bookmaker.
+
+    Ordre de priorité :
+      1. Betfair Exchange (si BETFAIR_APP_KEY/USERNAME/PASSWORD définis)
+      2. The Odds API    (si api_key défini et TT disponible)
+
+    Modifie la liste en place et la retourne.
+    """
+    import os
+    from src.scraping.betfair import get_table_tennis_odds_betfair
+
+    bf_key  = os.getenv("BETFAIR_APP_KEY", "")
+    bf_user = os.getenv("BETFAIR_USERNAME", "")
+    bf_pass = os.getenv("BETFAIR_PASSWORD", "")
+
+    total_matched = 0
+
+    # 1. Betfair Exchange
+    if bf_key and bf_user and bf_pass:
+        bf_events = get_table_tennis_odds_betfair(bf_key, bf_user, bf_pass)
+        if bf_events:
+            n = _apply_odds_to_matches(matches, bf_events, "Betfair Exchange")
+            total_matched += n
+            logger.info(f"Betfair Exchange : {n}/{len(matches)} matchs appariés")
+
+    # 2. The Odds API (fallback — couverture TT limitée)
+    if api_key and total_matched < len(matches):
+        api_events = get_table_tennis_odds(api_key)
+        if api_events:
+            n = _apply_odds_to_matches(matches, api_events, "The Odds API")
+            total_matched += n
+            logger.info(f"The Odds API : {n}/{len(matches)} matchs appariés")
+
+    logger.info(f"Odds totales appariées : {total_matched}/{len(matches)} matchs")
     return matches
