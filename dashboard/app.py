@@ -195,9 +195,9 @@ try:
                 cols = ["Date", "G", "Tournoi", "Joueur 1", "WTT1", "P(J1)", "Joueur 2", "WTT2", "P(J2)", "Favori", "Confiance", "Edge vs Elo"]
                 st.dataframe(
                     display[cols].style
-                        .applymap(_prob_color, subset=["P(J1)", "P(J2)"])
-                        .applymap(_conf_color, subset=["Confiance"])
-                        .applymap(_edge_color, subset=["Edge vs Elo"]),
+                        .map(_prob_color, subset=["P(J1)", "P(J2)"])
+                        .map(_conf_color, subset=["Confiance"])
+                        .map(_edge_color, subset=["Edge vs Elo"]),
                     use_container_width=True, hide_index=True, height=500,
                 )
 
