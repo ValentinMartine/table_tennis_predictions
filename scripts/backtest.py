@@ -7,6 +7,7 @@ Usage :
     python scripts/backtest.py --synthetic-vig 0.05   # cotes Elo simulées si odds NULL
 """
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -33,6 +34,11 @@ def parse_args():
     parser.add_argument(
         "--synthetic-vig", type=float, default=0.05, metavar="VIG",
         help="Vig du bookmaker simulé quand les cotes réelles sont absentes (défaut: 0.05)"
+    )
+    parser.add_argument(
+        "--real-odds-only", action="store_true",
+        help="Backteste uniquement les matchs avec de vraies cotes de bookmaker "
+             "(pas de cotes synthétiques Elo, résultat crédible)"
     )
     return parser.parse_args()
 
@@ -71,7 +77,7 @@ def main():
     logger.info(f"Cotes réelles : {n_real} | sans cotes : {n_synthetic}")
 
     # Remplir les cotes manquantes avec des cotes synthétiques Elo
-    if n_synthetic > 0:
+    if n_synthetic > 0 and not args.real_odds_only:
         df_test = fill_synthetic_odds(df_test, vig=args.synthetic_vig)
         n_filled = (df_test["odds_source"] == "synthetic_elo").sum()
         logger.info(
@@ -86,6 +92,17 @@ def main():
     if df_bets.empty:
         logger.warning("Aucun pari qualifié")
         return
+
+    # Sauvegarde de la courbe de bankroll pour l'export web
+    Path("data/backtest_bankroll.json").write_text(
+        json.dumps({
+            "initial_bankroll": args.bankroll,
+            "curve": [round(float(b), 2) for b in df_bets["bankroll"].values],
+            "stats": stats,
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    logger.info("Courbe de bankroll sauvegardée : data/backtest_bankroll.json")
 
     logger.info("\n=== RÉSULTATS BACKTESTING ===")
     for k, v in stats.items():
