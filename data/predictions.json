@@ -1,0 +1,184 @@
+{
+  "generated_at": "2026-07-03T14:54:11+00:00",
+  "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
+  "metrics": {
+    "model": "LightGBM",
+    "accuracy": 0.6802,
+    "roc_auc": 0.7476,
+    "log_loss": 0.5952,
+    "brier": 0.2046,
+    "n_test": 5920,
+    "elo_accuracy": 0.6764,
+    "elo_log_loss": 0.5939
+  },
+  "calibration": [
+    {
+      "pred": 0.0627,
+      "observed": 0.0857
+    },
+    {
+      "pred": 0.1576,
+      "observed": 0.1604
+    },
+    {
+      "pred": 0.2569,
+      "observed": 0.2271
+    },
+    {
+      "pred": 0.3522,
+      "observed": 0.3266
+    },
+    {
+      "pred": 0.4509,
+      "observed": 0.426
+    },
+    {
+      "pred": 0.5441,
+      "observed": 0.5457
+    },
+    {
+      "pred": 0.6496,
+      "observed": 0.7234
+    },
+    {
+      "pred": 0.7485,
+      "observed": 0.8249
+    },
+    {
+      "pred": 0.8351,
+      "observed": 0.8911
+    },
+    {
+      "pred": 0.9311,
+      "observed": 0.9577
+    }
+  ],
+  "feature_importance": [
+    {
+      "feature": "elo_diff",
+      "value": 0.5642
+    },
+    {
+      "feature": "avg_sets_p1",
+      "value": 0.2433
+    },
+    {
+      "feature": "rest_hours_p2",
+      "value": 0.2424
+    },
+    {
+      "feature": "rest_hours_p1",
+      "value": 0.2349
+    },
+    {
+      "feature": "avg_sets_p2",
+      "value": 0.2311
+    },
+    {
+      "feature": "is_p2_unknown",
+      "value": 0.2196
+    },
+    {
+      "feature": "elo_win_prob_p1",
+      "value": 0.2045
+    },
+    {
+      "feature": "form_p1",
+      "value": 0.199
+    },
+    {
+      "feature": "form_p2",
+      "value": 0.1749
+    },
+    {
+      "feature": "elo_intl_diff",
+      "value": 0.1635
+    }
+  ],
+  "backtest": {
+    "initial_bankroll": 1000.0,
+    "curve": [
+      980.0,
+      1006.95,
+      1023.73,
+      1040.11,
+      1053.97,
+      1032.89,
+      1046.67,
+      1071.79,
+      1050.35,
+      1067.85,
+      1046.49,
+      1025.56,
+      1005.05,
+      984.95,
+      1014.5,
+      1050.01,
+      1029.01,
+      1046.15,
+      1025.23,
+      1053.42,
+      1032.35,
+      1011.71,
+      991.47,
+      1007.99,
+      987.83,
+      968.07,
+      948.71,
+      974.8,
+      955.31,
+      967.06,
+      947.71,
+      963.5,
+      1002.04,
+      982.0,
+      1029.14,
+      1046.28,
+      1077.67,
+      1056.12,
+      1035.0,
+      1052.25,
+      1069.47,
+      1048.08,
+      1027.12,
+      1006.58
+    ],
+    "stats": {
+      "n_bets": 44,
+      "roi_pct": 0.66,
+      "win_rate_pct": 47.73,
+      "avg_odds": 2.119,
+      "avg_edge_pct": 17.39,
+      "sharpe_ratio": 0.044,
+      "max_drawdown_pct": -11.58,
+      "final_bankroll": 1006.58,
+      "profit_total": 6.58
+    }
+  },
+  "upcoming": [
+    {
+      "date": "?",
+      "tournament": "ITTF Men’s & Women’s World Cup",
+      "p1": "SUN Yingsha",
+      "p2": "WINTER Sabine",
+      "p1_prob": 0.754,
+      "favorite": "SUN Yingsha",
+      "confidence": 0.754,
+      "edge": null,
+      "wtt_p1": 9,
+      "wtt_p2": 36
+    },
+    {
+      "date": "?",
+      "tournament": "ITTF Men’s & Women’s World Cup",
+      "p1": "LIN Yun-Ju",
+      "p2": "MATSUSHIMA Sora",
+      "p1_prob": 0.458,
+      "favorite": "MATSUSHIMA Sora",
+      "confidence": 0.542,
+      "edge": null,
+      "wtt_p1": 22,
+      "wtt_p2": 23
+    }
+  ]
+}

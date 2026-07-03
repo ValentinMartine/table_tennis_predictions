@@ -24,6 +24,7 @@ data/*
 !data/xgb_calibration.csv
 !data/calibration_data.csv
 !data/elo_baseline_metrics.json
+!data/predictions.json
 
 # Secrets
 .env

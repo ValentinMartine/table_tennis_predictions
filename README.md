@@ -49,6 +49,20 @@ python scripts/predict_upcoming.py   # prédictions des matchs à venir
 python scripts/backtest.py           # backtest de la stratégie de mise
 ```
 
+## Autonomie
+
+Un pipeline [GitHub Actions](.github/workflows/autonomy.yml) s'exécute chaque semaine
+(et à la demande) pour maintenir le projet à jour sans intervention :
+
+1. collecte des résultats récents ;
+2. stockage des cotes bookmaker des matchs à venir (The Odds API) ;
+3. réentraînement du modèle sur l'historique enrichi ;
+4. prédictions des matchs à venir et backtest crédible (vraies cotes uniquement) ;
+5. régénération de l'artefact web `data/predictions.json` et commit de l'état mis à jour.
+
+La base de matchs et le modèle grossissent ainsi au fil des tournois. La seule
+configuration requise est le secret de dépôt `ODDS_API_KEY` (The Odds API, palier gratuit).
+
 ## Limites
 
 Les cotes et matchs à venir dépendent de sources tierces dont la disponibilité varie. Les

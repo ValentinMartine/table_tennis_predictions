@@ -1,0 +1,80 @@
+name: Autonomie (collecte, réentraînement, prédictions)
+
+# Pipeline autonome hebdomadaire :
+#   1. collecte les résultats récents (scraping)
+#   2. stocke les cotes bookmaker des matchs à venir (The Odds API)
+#   3. réentraîne le modèle sur l'historique enrichi
+#   4. prédit les matchs à venir et rejoue le backtest crédible
+#   5. régénère l'artefact web puis committe l'état mis à jour
+#
+# La clé The Odds API est fournie via le secret de dépôt ODDS_API_KEY.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # tous les lundis 06:00 UTC
+  workflow_dispatch: {} # déclenchement manuel possible
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autonomy
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+
+      - name: Collecte des résultats récents
+        run: python scripts/run_scraper.py --days 10 --priority 2
+        continue-on-error: true # les IP CI peuvent être bloquées par les sources
+
+      - name: Stockage des cotes bookmaker (The Odds API)
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python scripts/store_pre_match_odds.py --days 7
+        continue-on-error: true
+
+      - name: Réentraînement du modèle
+        run: python scripts/train_model.py --model lgbm --shap
+
+      - name: Prédictions des matchs à venir
+        run: python scripts/predict_upcoming.py --days 7 --model lgbm
+        continue-on-error: true
+
+      - name: Backtest crédible (vraies cotes uniquement)
+        run: python scripts/backtest.py --real-odds-only
+        continue-on-error: true
+
+      - name: Régénération de l'artefact web
+        run: python -m src.export
+
+      - name: Commit de l'état mis à jour
+        run: |
+          git config user.name "tt-autonomy-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/tt_matches.db \
+                  data/lgbm_model.pkl \
+                  data/model_metrics.json \
+                  data/lgbm_metrics.json \
+                  data/lgbm_shap_importance.csv \
+                  data/lgbm_calibration.csv \
+                  data/elo_baseline_metrics.json \
+                  data/predictions.json
+          if git diff --staged --quiet; then
+            echo "Aucun changement à committer."
+          else
+            git commit -m "chore(autonomie): mise à jour hebdomadaire (données, modèle, prédictions)"
+            git push
+          fi
