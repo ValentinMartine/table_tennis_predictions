@@ -1,5 +1,5 @@
 """
-Scraper Sofascore — API interne non-officielle mais stable et accessible.
+Scraper Sofascore - API interne non-officielle mais stable et accessible.
 
 Sofascore utilise la détection d'empreinte TLS (JA3/JA4) pour bloquer les
 requêtes automatisées. On contourne ça avec curl-cffi qui impersonne Chrome.
@@ -28,13 +28,13 @@ try:
 except ImportError:
     _HAS_CURL_CFFI = False
     logger.warning(
-        "curl-cffi non installé — Sofascore sera bloqué. "
+        "curl-cffi non installé - Sofascore sera bloqué. "
         "Installez-le : pip install curl-cffi"
     )
 
 API_BASE = "https://api.sofascore.com/api/v1"
 
-# IDs Sofascore vérifiés (stables — une seule compétition, pas par édition)
+# IDs Sofascore vérifiés (stables - une seule compétition, pas par édition)
 TOURNAMENT_IDS: dict[str, dict] = {
     "setka_cup":        {"tournament_ids": [15004], "name": "Setka Cup"},
     "liga_pro":         {"tournament_ids": [15006], "name": "Liga Pro"},
@@ -165,7 +165,7 @@ class SofascoreScraper(BaseScraper):
                 if attempt == 2:
                     raise
                 wait = 2 ** (attempt + 1)
-                logger.debug(f"[sofascore] retry {attempt+1}/3 après {wait}s — {e}")
+                logger.debug(f"[sofascore] retry {attempt+1}/3 après {wait}s - {e}")
                 time.sleep(wait)
         return {}
 
@@ -192,7 +192,7 @@ class SofascoreScraper(BaseScraper):
 
         # Fallback : scrape tous les matchs TT de la plage
         logger.warning(
-            f"[sofascore] {competition_id} inconnu — scrape par date sans filtre"
+            f"[sofascore] {competition_id} inconnu - scrape par date sans filtre"
         )
         return self._scrape_by_date_filtered(competition_id, None, start_date, end_date)  # type: ignore
 

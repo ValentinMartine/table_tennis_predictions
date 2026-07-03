@@ -1,5 +1,5 @@
 """
-Scraper BetsAPI — odds historiques et résultats en temps réel.
+Scraper BetsAPI - odds historiques et résultats en temps réel.
 Doc: https://betsapi.com/docs/
 
 Endpoints utilisés :
@@ -27,7 +27,7 @@ class BetsAPIScraper(BaseScraper):
         super().__init__(config)
         self.token = os.getenv("BETSAPI_TOKEN", "")
         if not self.token:
-            logger.warning("BETSAPI_TOKEN non défini — les appels API échoueront")
+            logger.warning("BETSAPI_TOKEN non défini - les appels API échoueront")
 
     def _api_get(self, endpoint: str, version: int = 1, **params) -> dict:
         base = self.BASE_URL if version == 1 else self.BASE_URL_V2
@@ -78,7 +78,7 @@ class BetsAPIScraper(BaseScraper):
         return matches
 
     def get_live_events(self) -> list[dict]:
-        """Matchs TT en cours — pour alertes live."""
+        """Matchs TT en cours - pour alertes live."""
         try:
             data = self._api_get("events/inplay", sport_id=SPORT_ID)
             return data.get("results", [])

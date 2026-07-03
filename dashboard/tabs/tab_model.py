@@ -24,7 +24,7 @@ def render_tab_model():
         else:
             mtime = os.path.getmtime(model_path)
             dt = datetime.fromtimestamp(mtime).strftime("%d/%m/%Y %H:%M")
-            st.success(f"Modèle chargé — entraîné le {dt}")
+            st.success(f"Modèle chargé - entraîné le {dt}")
 
             if metrics_path.exists():
                 metrics = json.loads(metrics_path.read_text())

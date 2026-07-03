@@ -1,5 +1,5 @@
 """
-Script de test des scrapers — valide le DOM et les sélecteurs avant le vrai scraping.
+Script de test des scrapers - valide le DOM et les sélecteurs avant le vrai scraping.
 
 Usage :
     python scripts/test_scraper.py --source skillgamesboard --comp setka_cup
@@ -49,13 +49,13 @@ def main():
     matches = scraper.scrape_competition(args.comp, start_date, end_date)
 
     if not matches:
-        logger.error("Aucun match extrait — les sélecteurs sont probablement à ajuster.")
+        logger.error("Aucun match extrait - les sélecteurs sont probablement à ajuster.")
         logger.info("Ouvre le site manuellement et inspecte le DOM (F12) pour trouver")
         logger.info("les vraies classes CSS des lignes de matchs, noms et scores.")
         sys.exit(1)
 
     logger.info(f"\n{'='*50}")
-    logger.info(f"{len(matches)} matchs extraits — exemples :")
+    logger.info(f"{len(matches)} matchs extraits - exemples :")
     for m in matches[:5]:
         logger.info(
             f"  {m.played_at.strftime('%Y-%m-%d')} | "

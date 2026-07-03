@@ -44,7 +44,7 @@ def load_kaggle_setka(file_path: Path | None = None) -> int:
     logger.info(f"Colonnes détectées : {list(df.columns)}")
     logger.info(f"Lignes : {len(df)}")
 
-    # Mapping flexible — adapte selon les colonnes réelles du CSV
+    # Mapping flexible - adapte selon les colonnes réelles du CSV
     df = _normalize_columns(df)
     if df is None:
         logger.error("Impossible de normaliser les colonnes du CSV Kaggle")

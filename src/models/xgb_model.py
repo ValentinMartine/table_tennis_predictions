@@ -1,5 +1,5 @@
 """
-Modèle XGBoost — comparaison avec LightGBM.
+Modèle XGBoost - comparaison avec LightGBM.
 Structure identique pour faciliter les comparaisons.
 """
 import pickle

@@ -68,7 +68,7 @@ class SkillGamesBoardScraper(BaseScraper):
                         timeout=10_000,
                     )
                 except PlaywrightTimeout:
-                    logger.info(f"Aucune ligne trouvée page {page_num} — fin de pagination")
+                    logger.info(f"Aucune ligne trouvée page {page_num} - fin de pagination")
                     break
 
                 raw = self._extract_matches(page, competition_id)
@@ -97,7 +97,7 @@ class SkillGamesBoardScraper(BaseScraper):
         raw_data = page.evaluate("""
             () => {
                 const results = [];
-                // Sélecteurs larges — couvre plusieurs mises en page possibles
+                // Sélecteurs larges - couvre plusieurs mises en page possibles
                 const rows = document.querySelectorAll(
                     'div.match-row, tr.match, div.game, div.result-row, ' +
                     'table.matches tbody tr, div.matches-list > div'
@@ -142,7 +142,7 @@ class SkillGamesBoardScraper(BaseScraper):
                 if match:
                     matches.append(match)
             except Exception as e:
-                logger.debug(f"Parse error : {e} — {item}")
+                logger.debug(f"Parse error : {e} - {item}")
 
         return matches
 
@@ -152,7 +152,7 @@ class SkillGamesBoardScraper(BaseScraper):
         if not p1 or not p2:
             return None
 
-        # Score — formats possibles : "3:1", "3-1", "3/1"
+        # Score - formats possibles : "3:1", "3-1", "3/1"
         score_raw = item.get("score", "")
         score_match = re.search(r"(\d+)\s*[:/-]\s*(\d+)", score_raw)
         if not score_match:

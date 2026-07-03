@@ -2,7 +2,7 @@
 Scraper Flashscore pour le tennis de table.
 
 Stratégie : Playwright intercepte les appels réseau internes de Flashscore
-pour récupérer le JSON brut directement — plus fiable que parser le DOM.
+pour récupérer le JSON brut directement - plus fiable que parser le DOM.
 
 Compétitions couvertes via Flashscore :
     TTNet (TR), Bundesliga (DE), Superliga (ES), Pro A (FR), Ekstraliga (PL)
@@ -123,7 +123,7 @@ class FlashscoreScraper(BaseScraper):
         """Tente de parser les données JSON interceptées."""
         matches = []
         try:
-            # Flashscore utilise parfois un format non-standard — cherche les objets JSON
+            # Flashscore utilise parfois un format non-standard - cherche les objets JSON
             json_objects = re.findall(r'\{[^{}]{50,}\}', body)
             for obj_str in json_objects:
                 try:

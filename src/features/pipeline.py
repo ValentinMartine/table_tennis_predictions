@@ -228,7 +228,7 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
 
     df = load_matches_from_db()
     if df.empty:
-        logger.warning("Aucun match en base — dataset vide")
+        logger.warning("Aucun match en base - dataset vide")
         return df
 
     logger.info("Calcul des features Elo...")

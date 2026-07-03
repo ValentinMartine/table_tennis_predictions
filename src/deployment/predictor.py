@@ -31,7 +31,7 @@ class LivePredictor:
 
     def _get_current_bankroll(self) -> float:
         """Récupère le bankroll actuel depuis les enregistrements de paris."""
-        initial = 100.0  # bankroll initial — à configurer
+        initial = 100.0  # bankroll initial - à configurer
         with get_session() as session:
             from sqlalchemy import func
             total_pl = session.query(
@@ -40,7 +40,7 @@ class LivePredictor:
         return initial + (total_pl or 0.0)
 
     def run(self) -> None:
-        """Point d'entrée principal — à appeler via cron."""
+        """Point d'entrée principal - à appeler via cron."""
         logger.info("Démarrage du pipeline de prédiction live")
         init_db()
 

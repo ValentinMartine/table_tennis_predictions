@@ -24,7 +24,7 @@ class IttfRankingsScraper(BaseScraper):
     )
 
     def scrape_competition(self, competition_id, start_date, end_date):
-        """Non applicable pour les rankings — utiliser scrape_rankings()."""
+        """Non applicable pour les rankings - utiliser scrape_rankings()."""
         raise NotImplementedError("Utiliser scrape_rankings() pour les classements ITTF.")
 
     def scrape_rankings(self, gender: str = "M") -> list[dict]:

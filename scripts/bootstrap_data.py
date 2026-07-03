@@ -1,5 +1,5 @@
 """
-Script de bootstrap — à lancer une seule fois pour initialiser la base de données.
+Script de bootstrap - à lancer une seule fois pour initialiser la base de données.
 
 Ordre des opérations :
   1. Crée les tables DB

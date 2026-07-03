@@ -105,7 +105,7 @@ class LGBMModel:
 
     def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
         if not self._is_fitted:
-            raise RuntimeError("Modèle non entraîné — appeler fit() d'abord")
+            raise RuntimeError("Modèle non entraîné - appeler fit() d'abord")
         X = self._get_features(df)
         return self.model.predict_proba(X)[:, 1]
 
@@ -121,7 +121,7 @@ class LGBMModel:
 
     def shap_analysis(self, df: pd.DataFrame, n_samples: int = 500) -> pd.DataFrame:
         X = self._get_features(df).head(n_samples)
-        # CalibratedClassifierCV entraîne des clones — récupérer le premier estimateur fitté
+        # CalibratedClassifierCV entraîne des clones - récupérer le premier estimateur fitté
         fitted_estimator = self.model.calibrated_classifiers_[0].estimator
         explainer = shap.TreeExplainer(fitted_estimator)
         shap_values = explainer.shap_values(X)

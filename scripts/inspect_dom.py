@@ -1,5 +1,5 @@
 """
-Script de diagnostic DOM — ouvre les sites et sauvegarde le HTML rendu.
+Script de diagnostic DOM - ouvre les sites et sauvegarde le HTML rendu.
 Permet d'identifier les vraies classes CSS sans ouvrir le navigateur manuellement.
 
 Usage :

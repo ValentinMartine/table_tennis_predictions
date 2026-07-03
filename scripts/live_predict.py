@@ -1,5 +1,5 @@
 """
-Script : prédiction live — à lancer via cron toutes les 15 minutes.
+Script : prédiction live - à lancer via cron toutes les 15 minutes.
 
 Usage :
     python scripts/live_predict.py

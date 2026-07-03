@@ -1,5 +1,5 @@
 """
-Scraper OddsMatrix — source d'odds alternative à BetsAPI.
+Scraper OddsMatrix - source d'odds alternative à BetsAPI.
 
 291 compétitions TT, 16 marchés, ~18k events/an.
 1 mois d'essai gratuit : https://oddsmatrix.com/contact/
@@ -28,7 +28,7 @@ class OddsMatrixScraper(BaseScraper):
         self.token = os.getenv("ODDSMATRIX_TOKEN", "")
         self.base_url = config.get("base_url", "https://api.oddsmatrix.com/v1")
         if not self.token:
-            logger.warning("ODDSMATRIX_TOKEN non défini — activer l'essai gratuit sur oddsmatrix.com/contact/")
+            logger.warning("ODDSMATRIX_TOKEN non défini - activer l'essai gratuit sur oddsmatrix.com/contact/")
 
     def _api_get(self, endpoint: str, **params) -> dict:
         url = f"{self.base_url}/{endpoint}"

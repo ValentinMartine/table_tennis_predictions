@@ -49,7 +49,7 @@ class TelegramAlerter:
         prob_pct = round(bet["prob"] * 100, 1)
 
         msg = (
-            f"🏓 *PARI TT* — {bet.get('competition', 'N/A')}\n"
+            f"🏓 *PARI TT* - {bet.get('competition', 'N/A')}\n"
             f"Match : {bet['match']}\n"
             f"Pari : *{bet['bet_on']}*\n"
             f"Proba : {prob_pct}% | Cote : {bet['odds']:.2f}\n"

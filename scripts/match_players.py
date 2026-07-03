@@ -232,7 +232,7 @@ def main():
     logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level} | {message}")
 
     if args.dry_run:
-        logger.info("MODE DRY-RUN — aucune modification en DB")
+        logger.info("MODE DRY-RUN - aucune modification en DB")
 
     with engine.connect() as conn:
         logger.info("Chargement des joueurs...")

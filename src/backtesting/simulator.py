@@ -84,7 +84,7 @@ class BettingSimulator:
             })
 
         if not records:
-            logger.warning("Aucun pari simulé — vérifier les filtres (edge, odds, confidence)")
+            logger.warning("Aucun pari simulé - vérifier les filtres (edge, odds, confidence)")
             return pd.DataFrame(), {}
 
         df_bets = pd.DataFrame(records)

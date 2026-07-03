@@ -2,7 +2,7 @@
 Scraper pour tabletennis.guide (WTT, ITTF international, championnats).
 
 Le site expose une API JSON non documentée accessible via les endpoints
-/api/matches et /api/events — à confirmer lors de l'exploration initiale.
+/api/matches et /api/events - à confirmer lors de l'exploration initiale.
 """
 import re
 from datetime import datetime

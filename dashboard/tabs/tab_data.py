@@ -92,7 +92,7 @@ def render_tab_data(WTT_CALENDAR_2025_2026, PRIORITY_LABELS, PRIORITY_COLORS, fm
             st.plotly_chart(fig, use_container_width=True)
 
     with explore_sub[2]:
-        st.subheader("Backtest — simulation de paris")
+        st.subheader("Backtest - simulation de paris")
         df_bets = get_betting_history(paper_only=True)
         if df_bets.empty:
             st.info("Aucun historique de paris disponible.")
