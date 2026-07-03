@@ -97,17 +97,37 @@ def _api_post(endpoint: str, payload: dict, app_key: str, token: str) -> dict | 
     return resp.json()
 
 
-def get_tt_upcoming_markets(app_key: str, token: str, days_ahead: int = 14) -> list[dict]:
+def resolve_event_type_id(app_key: str, token: str, name: str = "Table Tennis") -> str:
+    """
+    Résout l'eventTypeId par son nom via listEventTypes (plus fiable qu'une
+    constante codée en dur). Retombe sur _TT_EVENT_ID si la résolution échoue.
+    """
+    types = _api_post("listEventTypes", {"filter": {}}, app_key, token)
+    if isinstance(types, list):
+        for t in types:
+            et = t.get("eventType", {})
+            if et.get("name", "").strip().lower() == name.lower():
+                logger.info(f"Betfair : eventTypeId '{name}' = {et.get('id')}")
+                return str(et["id"])
+        logger.warning(f"Betfair : '{name}' introuvable dans listEventTypes, "
+                       f"utilisation de la constante {_TT_EVENT_ID}")
+    return _TT_EVENT_ID
+
+
+def get_tt_upcoming_markets(
+    app_key: str, token: str, days_ahead: int = 14, event_type_id: str | None = None
+) -> list[dict]:
     """
     Liste les marchés MATCH_ODDS TT à venir.
     Retourne une liste de {marketId, event, runners: [{selectionId, runnerName}]}.
     """
     now = datetime.now(timezone.utc)
     end = now + timedelta(days=days_ahead)
+    event_type_id = event_type_id or _TT_EVENT_ID
 
     catalogue = _api_post("listMarketCatalogue", {
         "filter": {
-            "eventTypeIds": [_TT_EVENT_ID],
+            "eventTypeIds": [event_type_id],
             "marketTypeCodes": ["MATCH_ODDS"],
             "marketStartTime": {
                 "from": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -202,7 +222,8 @@ def get_table_tennis_odds_betfair(
     if not token:
         return []
 
-    markets = get_tt_upcoming_markets(app_key, token, days_ahead)
+    event_type_id = resolve_event_type_id(app_key, token)
+    markets = get_tt_upcoming_markets(app_key, token, days_ahead, event_type_id)
     if not markets:
         return []
 
