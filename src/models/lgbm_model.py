@@ -18,8 +18,14 @@ FEATURE_COLS = [
     "elo_diff", "elo_win_prob_p1",
     # Elo international (WTT Champions/Star Contender/Cup Finals, Worlds, JO)
     "elo_intl_diff", "elo_intl_win_prob_p1",
+    # Glicko-2 (rating + incertitude RD + volatilité)
+    "glicko_diff", "glicko_win_prob_p1",
+    "glicko_rd_p1", "glicko_rd_p2", "glicko_rd_diff",
+    "glicko_vol_p1", "glicko_vol_p2",
     # H2H (min_matches=1, fenêtre 5 ans)
     "h2h_matches", "h2h_winrate_p1", "h2h_recent_winrate_p1",
+    # Common-opponent (différentiel via adversaires communs, shrinké)
+    "co_n_common", "co_winrate_diff", "co_winrate_diff_shr",
     # Forme récente (fenêtre 10 matchs)
     "form_p1", "form_p2", "form_diff",
     # Sets : volume + dominance
@@ -117,6 +123,25 @@ class LGBMModel:
         return {
             "mean_log_loss": round(-scores.mean(), 4),
             "std_log_loss": round(scores.std(), 4),
+        }
+
+    def grouped_cross_validate(self, df: pd.DataFrame, n_splits: int = 5) -> dict:
+        """
+        CV groupée par joueur (GroupKFold sur player1_id) : aucun joueur du fold de
+        validation n'apparaît dans le fold d'entraînement. Détecte le sur-apprentissage
+        propre à certains joueurs, invisible avec une CV standard.
+        """
+        from sklearn.model_selection import GroupKFold
+        X = self._get_features(df)
+        y = df["target"].values
+        groups = df["player1_id"].values
+        cv = GroupKFold(n_splits=n_splits)
+        scores = cross_val_score(
+            self.base_model, X, y, cv=cv, groups=groups, scoring="neg_log_loss"
+        )
+        return {
+            "grouped_mean_log_loss": round(-scores.mean(), 4),
+            "grouped_std_log_loss": round(scores.std(), 4),
         }
 
     def shap_analysis(self, df: pd.DataFrame, n_samples: int = 500) -> pd.DataFrame:

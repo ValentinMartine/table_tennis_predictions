@@ -28,8 +28,10 @@ from loguru import logger
 from sqlalchemy import text
 
 from ..database.db import engine
+from .common_opponent import CommonOpponentCalculator
 from .elo import EloCalculator
 from .form import FormCalculator
+from .glicko import Glicko2Calculator
 from .h2h import H2HCalculator
 
 
@@ -193,27 +195,82 @@ def _add_ranking_trajectory(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _add_time_weights(df: pd.DataFrame, halflife_days: int = 365) -> pd.DataFrame:
+def _add_asof_rankings(df: pd.DataFrame, enabled: bool = False) -> pd.DataFrame:
+    """
+    Remplace ittf_rank/wtt_rank par le classement *tel qu'il était à la date du match*
+    (dernier snapshot <= played_at), au lieu du snapshot le plus récent (qui fuite
+    l'information du futur pour les matchs anciens).
+
+    Activé seulement si assez de snapshots datés existent (sinon on garde le
+    comportement courant pour ne pas annuler le signal). Devient bénéfique à mesure
+    que les snapshots hebdomadaires s'accumulent.
+    """
+    if not enabled:
+        return df
+    df = df.copy()
+    match_ns = df["played_at"].values.astype("int64")
+    for tbl, cols in (("ittf_rankings", ("ittf_rank_p1", "ittf_rank_p2")),
+                      ("wtt_rankings", ("wtt_rank_p1", "wtt_rank_p2"))):
+        try:
+            with engine.connect() as conn:
+                r = pd.read_sql(text(f"SELECT player_id, rank, snapshot_date FROM {tbl}"), conn)
+        except Exception as e:
+            logger.warning(f"as-of rankings : lecture {tbl} échouée ({e}), colonnes inchangées")
+            continue
+        if r["snapshot_date"].nunique() < 2:
+            logger.info(f"as-of {tbl} : <2 snapshots datés, classement 'latest' conservé")
+            continue
+        r["snapshot_date"] = pd.to_datetime(r["snapshot_date"])
+        arrays: dict[int, tuple] = {}
+        for pid, g in r.sort_values("snapshot_date").groupby("player_id"):
+            arrays[int(pid)] = (g["snapshot_date"].values.astype("int64"),
+                                g["rank"].values.astype("float64"))
+
+        def _asof(pid: int, m_ns: int) -> float:
+            arr = arrays.get(int(pid))
+            if arr is None:
+                return 9999.0
+            dates, ranks = arr
+            i = int(np.searchsorted(dates, m_ns, side="right")) - 1
+            return float(ranks[i]) if i >= 0 else 9999.0
+
+        for col, pcol in zip(cols, ("player1_id", "player2_id")):
+            ids = df[pcol].values
+            df[col] = [_asof(ids[k], int(match_ns[k])) for k in range(len(df))]
+        logger.info(f"as-of {tbl} : classements recalculés à la date du match")
+    return df
+
+
+def _add_time_weights(df: pd.DataFrame, halflife_days: int = 365, enabled: bool = True) -> pd.DataFrame:
     """
     Calcule des poids exponentiels basés sur la récence des matchs.
     Un match d'il y a 1 an (halflife) aura moitié moins de poids qu'un match d'aujourd'hui.
+
+    halflife_days <= 0 ou enabled=False désactive la pondération (poids uniformes).
     """
     df = df.copy()
     if df.empty:
         df["sample_weight"] = 1.0
         return df
-    
+
+    if not enabled or halflife_days is None or halflife_days <= 0:
+        df["sample_weight"] = 1.0
+        logger.info("Poids temporels désactivés (poids uniformes)")
+        return df
+
     max_date = df["played_at"].max()
-    days_diff = (max_date - df["played_at"]).dt.days
-    
-    # f(t) = exp(-log(2) * t / halflife)
-    # df["sample_weight"] = np.exp(-np.log(2) * days_diff / halflife_days)
-    df["sample_weight"] = 1.0
-    
-    # Normalisation pour que la moyenne soit 1.0 (optionnel mais recommandé)
+    days_diff = (max_date - df["played_at"]).dt.days.clip(lower=0)
+
+    # f(t) = exp(-log(2) * t / halflife) : décroissance par demi-vie
+    df["sample_weight"] = np.exp(-np.log(2) * days_diff / halflife_days)
+
+    # Normalisation pour que la moyenne soit 1.0 (préserve l'échelle globale des poids)
     df["sample_weight"] = df["sample_weight"] / df["sample_weight"].mean()
-    
-    logger.info(f"Poids temporels calculés (halflife={halflife_days}j) : min={df['sample_weight'].min():.3f}, max={df['sample_weight'].max():.3f}")
+
+    logger.info(
+        f"Poids temporels (Time-Decay) activés, halflife={halflife_days}j : "
+        f"min={df['sample_weight'].min():.3f}, max={df['sample_weight'].max():.3f}"
+    )
     return df
 
 
@@ -231,14 +288,32 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
         logger.warning("Aucun match en base - dataset vide")
         return df
 
+    # Classement as-of (anti-fuite) si assez de snapshots datés ; sinon no-op.
+    df = _add_asof_rankings(df, enabled=feat_cfg.get("ranking_as_of", False))
+
     logger.info("Calcul des features Elo...")
     elo_calc = EloCalculator(
         initial_rating=elo_cfg.get("initial_rating", 1500),
         k_default=elo_cfg.get("k_factor_default", 32),
         k_new_player=elo_cfg.get("k_factor_new_player", 40),
         competition_weights=elo_cfg.get("competition_weights", {}),
+        k_mode=elo_cfg.get("k_mode", "adaptive"),
+        k_c=elo_cfg.get("k_c", 250.0),
+        k_offset=elo_cfg.get("k_offset", 5.0),
+        k_exp=elo_cfg.get("k_exp", 0.4),
+        use_mov=elo_cfg.get("use_mov", True),
+        use_autocorr=elo_cfg.get("use_autocorr", True),
+        mov_cap=elo_cfg.get("mov_cap", 4.0),
     )
     df = elo_calc.compute(df)
+
+    logger.info("Calcul des features Glicko-2...")
+    glicko_calc = Glicko2Calculator(
+        initial_rating=elo_cfg.get("initial_rating", 1500),
+        tau=feat_cfg.get("glicko", {}).get("tau", 0.5),
+        rating_period_days=feat_cfg.get("glicko", {}).get("rating_period_days", 30),
+    )
+    df = glicko_calc.compute(df)
 
     logger.info("Calcul des features H2H...")
     h2h_calc = H2HCalculator(
@@ -246,6 +321,12 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
         max_age_days=h2h_cfg.get("max_age_days", 1825),
     )
     df = h2h_calc.compute(df)
+
+    logger.info("Calcul des features common-opponent...")
+    co_calc = CommonOpponentCalculator(
+        shrinkage_k=h2h_cfg.get("common_opponent_shrinkage_k", 5.0)
+    )
+    df = co_calc.compute(df)
 
     logger.info("Calcul des features de forme récente...")
     form_calc = FormCalculator(
@@ -277,7 +358,11 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
     df = _add_ranking_trajectory(df)
 
     logger.info("Calcul des poids temporels (Time-Decay)...")
-    df = _add_time_weights(df, halflife_days=feat_cfg.get("time_decay_halflife", 365))
+    df = _add_time_weights(
+        df,
+        halflife_days=feat_cfg.get("time_decay_halflife", 365),
+        enabled=feat_cfg.get("time_decay_enabled", True),
+    )
 
     # Nouvelles features pour gérer l'incertitude
     df["is_p1_unknown"] = ((df["ittf_rank_p1"] >= 9999) & (df["matches_played_p1"] < 10)).astype(int)
@@ -291,8 +376,14 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
         "elo_diff", "elo_win_prob_p1",
         # Elo international (WTT Champions/Star Contender/Cup Finals, Worlds, JO)
         "elo_intl_diff", "elo_intl_win_prob_p1",
+        # Glicko-2 (rating + incertitude RD + volatilité)
+        "glicko_diff", "glicko_win_prob_p1",
+        "glicko_rd_p1", "glicko_rd_p2", "glicko_rd_diff",
+        "glicko_vol_p1", "glicko_vol_p2",
         # H2H (corrigé : min_matches=1, fenêtre 5 ans)
         "h2h_matches", "h2h_winrate_p1", "h2h_recent_winrate_p1",
+        # Common-opponent (différentiel via adversaires communs, shrinké)
+        "co_n_common", "co_winrate_diff", "co_winrate_diff_shr",
         # Forme récente (fenêtre 10 matchs)
         "form_p1", "form_p2", "form_diff",
         # Sets (volume + dominance)
@@ -321,7 +412,7 @@ def build_features(config_path: str = "config/settings.yaml") -> pd.DataFrame:
     META_COLS = [
         "match_id", "played_at", "competition_id", "odds_p1", "odds_p2", "target",
         "player1_id", "player2_id", "elo_p1", "elo_p2", "elo_intl_p1", "elo_intl_p2",
-        "sample_weight",
+        "glicko_p1", "glicko_p2", "sample_weight",
     ]
 
     available = [c for c in FEATURE_COLS + META_COLS if c in df.columns]

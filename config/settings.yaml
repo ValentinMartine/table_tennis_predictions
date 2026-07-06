@@ -181,8 +181,17 @@ static_data:
 features:
   elo:
     initial_rating: 1500
-    k_factor_default: 32
-    k_factor_new_player: 40         # pour <30 matchs
+    k_factor_default: 32            # utilisé seulement si k_mode=step
+    k_factor_new_player: 40         # pour <30 matchs (k_mode=step)
+    # K adaptatif façon 538 : K = k_c / (n_matchs + k_offset)^k_exp
+    k_mode: adaptive                # "adaptive" | "step"
+    k_c: 250.0
+    k_offset: 5.0
+    k_exp: 0.4
+    # Marge de victoire (écart en manches) + correction d'autocorrélation
+    use_mov: true
+    mov_cap: 4.0                    # clip des marges aberrantes (best-of-7 => 4 max)
+    use_autocorr: true
     # Par compétition : pondération des victoires
     competition_weights:
       wtt_champions: 1.5
@@ -200,9 +209,16 @@ features:
   h2h:
     min_matches: 1                   # 1 seul match suffit (3 filtrait trop agressivement)
     max_age_days: 1825               # fenêtre 5 ans (730 = 2 ans trop court pour WTT)
+    common_opponent_shrinkage_k: 5.0 # shrinkage du différentiel common-opponent
+  glicko:
+    tau: 0.5                         # contrainte de volatilité Glicko-2
+    rating_period_days: 30           # période de notation (inflation du RD par inactivité)
   rest:
     fatigue_threshold_hours: 48      # <48h entre matchs = fatigue
-  time_decay_halflife: 10000        # Désactivé temporairement (stabilité)
+  time_decay_enabled: true
+  time_decay_halflife: 730           # 2 ans ; à valider au retrain (10000 = quasi désactivé)
+  ranking_as_of: false               # true = classement à la date du match (anti-fuite) ;
+                                     # activer une fois >= plusieurs snapshots datés accumulés
 
 models:
   val_cutoff_date: "2024-01-01"     # train : 2022-2023, val : 2024, test : 2025

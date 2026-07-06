@@ -9,6 +9,7 @@ Features produites :
 - elo_intl_diff                : elo_intl_p1 - elo_intl_p2
 - elo_intl_win_prob_p1         : probabilité Elo international de victoire de P1
 """
+import math
 from dataclasses import dataclass
 
 import pandas as pd
@@ -22,6 +23,24 @@ class EloState:
 
 def expected_score(ra: float, rb: float) -> float:
     return 1 / (1 + 10 ** ((rb - ra) / 400))
+
+
+def mov_multiplier(margin: float, a: float, b: float, cap: float) -> float:
+    """
+    Multiplicateur de marge de victoire (forme FiveThirtyEight) : a*ln(m) + b.
+    margin = écart en manches (best-of-N), clippé dans [1, cap] pour neutraliser
+    les scores aberrants. Une victoire nette pèse plus qu'une victoire serrée.
+    """
+    m = min(max(margin, 1.0), cap)
+    return a * math.log(m) + b
+
+
+def autocorr_adjustment(winner_elo: float, loser_elo: float, c: float, scale: float) -> float:
+    """
+    Correction d'autocorrélation (538) : atténue le gain quand le vainqueur était
+    déjà favori, sinon la MOV gonfle mécaniquement les ratings des favoris.
+    """
+    return c / ((winner_elo - loser_elo) * scale + c)
 
 
 def update_elo(
@@ -58,12 +77,36 @@ class EloCalculator:
         k_new_player: float = 40.0,
         new_player_threshold: int = 30,
         competition_weights: dict[str, float] | None = None,
+        # K adaptatif façon 538 : K = k_c / (n + k_offset)^k_exp
+        k_mode: str = "adaptive",
+        k_c: float = 250.0,
+        k_offset: float = 5.0,
+        k_exp: float = 0.4,
+        # Marge de victoire + correction d'autocorrélation
+        use_mov: bool = True,
+        mov_a: float = 0.6686,
+        mov_b: float = 0.8048,
+        mov_cap: float = 4.0,
+        use_autocorr: bool = True,
+        autocorr_c: float = 2.05,
+        autocorr_scale: float = 0.001,
     ):
         self.initial_rating = initial_rating
         self.k_default = k_default
         self.k_new_player = k_new_player
         self.new_player_threshold = new_player_threshold
         self.comp_weights = competition_weights or {}
+        self.k_mode = k_mode
+        self.k_c = k_c
+        self.k_offset = k_offset
+        self.k_exp = k_exp
+        self.use_mov = use_mov
+        self.mov_a = mov_a
+        self.mov_b = mov_b
+        self.mov_cap = mov_cap
+        self.use_autocorr = use_autocorr
+        self.autocorr_c = autocorr_c
+        self.autocorr_scale = autocorr_scale
         self._ratings: dict[int, EloState] = {}
         self._intl_ratings: dict[int, EloState] = {}
 
@@ -81,11 +124,22 @@ class EloCalculator:
         return self._k_for_state(self._get_state(player_id))
 
     def _k_for_state(self, state: EloState) -> float:
+        if self.k_mode == "adaptive":
+            return self.k_c / ((state.matches_played + self.k_offset) ** self.k_exp)
         return (
             self.k_new_player
             if state.matches_played < self.new_player_threshold
             else self.k_default
         )
+
+    def _match_weight(self, comp_weight: float, margin: float, winner_elo: float, loser_elo: float) -> float:
+        """Poids effectif du match : compétition × marge de victoire × autocorrélation."""
+        w = comp_weight
+        if self.use_mov and margin is not None:
+            w *= mov_multiplier(margin, self.mov_a, self.mov_b, self.mov_cap)
+        if self.use_autocorr:
+            w *= autocorr_adjustment(winner_elo, loser_elo, self.autocorr_c, self.autocorr_scale)
+        return w
 
     def compute(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -109,6 +163,12 @@ class EloCalculator:
             comp_weight = self.comp_weights.get(comp_id, 1.0)
             comp_priority = int(row.get("comp_priority", 99))
 
+            # Marge de victoire (écart en manches). None si score indisponible.
+            margin = None
+            sp1, sp2 = row.get("score_p1"), row.get("score_p2")
+            if pd.notna(sp1) and pd.notna(sp2):
+                margin = abs(float(sp1) - float(sp2))
+
             # ── Elo global ────────────────────────────────────────────────────
             s1 = self._get_state(p1_id)
             s2 = self._get_state(p2_id)
@@ -121,9 +181,11 @@ class EloCalculator:
             k1 = self._k_for_state(s1)
             k2 = self._k_for_state(s2)
             if winner == 1:
-                new_r1, new_r2 = update_elo(s1.rating, s2.rating, k1, k2, comp_weight)
+                w = self._match_weight(comp_weight, margin, s1.rating, s2.rating)
+                new_r1, new_r2 = update_elo(s1.rating, s2.rating, k1, k2, w)
             else:
-                new_r2, new_r1 = update_elo(s2.rating, s1.rating, k2, k1, comp_weight)
+                w = self._match_weight(comp_weight, margin, s2.rating, s1.rating)
+                new_r2, new_r1 = update_elo(s2.rating, s1.rating, k2, k1, w)
             s1.rating = new_r1
             s2.rating = new_r2
             s1.matches_played += 1
@@ -140,9 +202,11 @@ class EloCalculator:
                 ki1 = self._k_for_state(si1)
                 ki2 = self._k_for_state(si2)
                 if winner == 1:
-                    new_ri1, new_ri2 = update_elo(si1.rating, si2.rating, ki1, ki2, comp_weight)
+                    wi = self._match_weight(comp_weight, margin, si1.rating, si2.rating)
+                    new_ri1, new_ri2 = update_elo(si1.rating, si2.rating, ki1, ki2, wi)
                 else:
-                    new_ri2, new_ri1 = update_elo(si2.rating, si1.rating, ki2, ki1, comp_weight)
+                    wi = self._match_weight(comp_weight, margin, si2.rating, si1.rating)
+                    new_ri2, new_ri1 = update_elo(si2.rating, si1.rating, ki2, ki1, wi)
                 si1.rating = new_ri1
                 si2.rating = new_ri2
                 si1.matches_played += 1
