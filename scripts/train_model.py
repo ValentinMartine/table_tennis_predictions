@@ -52,6 +52,15 @@ def save_dashboard_artifacts(stats: dict, elo_stats: dict, preds: np.ndarray,
     pd.DataFrame({"prob_pred": prob_pred, "prob_true": prob_true}).to_csv(
         "data/calibration_data.csv", index=False)
 
+    # Rapport de calibration détaillé (ECE/MCE + décomposition de Brier)
+    from src.evaluation.calibration import calibration_report
+    cal_report = calibration_report(y_true, preds, n_bins=10)
+    Path(f"data/{model_name}_calibration_report.json").write_text(json.dumps(cal_report, indent=2))
+    logger.info(
+        f"Calibration {model_name} : ECE={cal_report.get('ece')} MCE={cal_report.get('mce')} "
+        f"(reliability={cal_report.get('brier_reliability')}, resolution={cal_report.get('brier_resolution')})"
+    )
+
     # SHAP (LGBM et XGB)
     if do_shap and isinstance(model, (LGBMModel, XGBModel)):
         importance = model.shap_analysis(df_test)

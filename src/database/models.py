@@ -169,4 +169,35 @@ class BettingRecord(Base):
     is_paper = Column(Boolean, default=True)
     placed_at = Column(DateTime, default=datetime.utcnow)
 
+    # Cote de clôture du côté parié (dernier prix avant le match) → Closing Line Value
+    closing_odds = Column(Float, nullable=True)
+
     match = relationship("Match")
+
+
+class OddsSnapshot(Base):
+    """
+    Série temporelle des cotes d'un match (ouverture → clôture).
+
+    Permet de mesurer la Closing Line Value : on compare le prix auquel un pari
+    a été placé au dernier prix avant le match (snapshot_type='close'), la cote
+    de clôture étant l'estimation la plus efficiente de la vraie probabilité.
+    """
+
+    __tablename__ = "odds_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=True)
+    match_external_id = Column(String, nullable=True)   # ex: "sfs_15907848"
+    player1_name = Column(String, nullable=True)
+    player2_name = Column(String, nullable=True)
+    source = Column(String)                              # betfair / sofascore / the_odds_api
+    odds_p1 = Column(Float)
+    odds_p2 = Column(Float)
+    match_start = Column(DateTime, nullable=True)        # coup d'envoi prévu
+    snapshot_type = Column(String, default="inter")      # 'open' | 'inter' | 'close'
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("match_external_id", "source", "captured_at", name="uq_odds_snapshot"),
+    )
