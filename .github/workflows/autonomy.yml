@@ -1,13 +1,19 @@
 name: Autonomie (collecte, réentraînement, prédictions)
 
 # Pipeline autonome hebdomadaire :
-#   1. collecte les résultats récents (scraping)
-#   2. stocke les cotes bookmaker des matchs à venir (The Odds API)
-#   3. réentraîne le modèle sur l'historique enrichi
-#   4. prédit les matchs à venir et rejoue le backtest crédible
-#   5. régénère l'artefact web puis committe l'état mis à jour
+#   1. met à jour les classements ITTF/WTT (snapshots datés → historisation)
+#   2. collecte les résultats récents (scraping)
+#   3. stocke les cotes bookmaker des matchs à venir
+#   4. réentraîne le modèle, PUIS eval-gate : ne promeut que s'il ne régresse pas
+#   5. prédit les matchs à venir et rejoue le backtest crédible
+#   6. régénère l'artefact web puis committe l'état mis à jour
+#   7. alerte Telegram en cas d'échec ou de rejet du retrain
 #
-# La clé The Odds API est fournie via le secret de dépôt ODDS_API_KEY.
+# Sources de cotes (secrets de dépôt, toutes facultatives ; au moins une conseillée) :
+#   - BetsAPI (recommandé, fiable en CI, bonne couverture TT) : BETSAPI_TOKEN
+#   - Betfair Exchange (cotes sans marge)                     : BETFAIR_APP_KEY/USERNAME/PASSWORD
+#   - The Odds API (repli)                                    : ODDS_API_KEY
+# Alerting (facultatif) : TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 on:
   schedule:
@@ -20,6 +26,10 @@ permissions:
 concurrency:
   group: autonomy
   cancel-in-progress: false
+
+env:
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
 jobs:
   update:
@@ -36,20 +46,58 @@ jobs:
       - name: Installation des dépendances
         run: pip install -r requirements.txt
 
+      - name: Mise à jour des classements (snapshots datés → historisation)
+        run: |
+          python scripts/fetch_wtt_rankings.py || true
+          python scripts/fetch_ittf_rankings.py || true
+        continue-on-error: true
+
       - name: Collecte des résultats récents
         run: python scripts/run_scraper.py --days 10 --priority 2
         continue-on-error: true # les IP CI peuvent être bloquées par les sources
 
-      - name: Stockage des cotes bookmaker (The Odds API)
+      - name: Stockage des cotes bookmaker (BetsAPI / Betfair / The Odds API)
         env:
+          BETSAPI_TOKEN: ${{ secrets.BETSAPI_TOKEN }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          BETFAIR_APP_KEY: ${{ secrets.BETFAIR_APP_KEY }}
+          BETFAIR_USERNAME: ${{ secrets.BETFAIR_USERNAME }}
+          BETFAIR_PASSWORD: ${{ secrets.BETFAIR_PASSWORD }}
         run: python scripts/store_pre_match_odds.py --days 7
         continue-on-error: true
 
-      - name: Réentraînement du modèle
+      - name: Sauvegarde du modèle production (pré-retrain)
+        run: |
+          mkdir -p /tmp/prod
+          cp data/lgbm_model.pkl    /tmp/prod/ 2>/dev/null || true
+          cp data/lgbm_metrics.json /tmp/prod/ 2>/dev/null || true
+          cp data/model_metrics.json /tmp/prod/ 2>/dev/null || true
+
+      - name: Réentraînement du modèle (candidat)
         run: python scripts/train_model.py --model lgbm --shap
 
+      - name: Eval-gate (promotion conditionnelle)
+        run: |
+          if python scripts/eval_gate.py \
+                --candidate data/lgbm_metrics.json \
+                --baseline  /tmp/prod/lgbm_metrics.json \
+                --metric log_loss --tolerance 0.005; then
+            echo "Candidat promu."
+          else
+            echo "Candidat REJETÉ (régression) — restauration du modèle production."
+            cp /tmp/prod/lgbm_model.pkl     data/lgbm_model.pkl     2>/dev/null || true
+            cp /tmp/prod/lgbm_metrics.json  data/lgbm_metrics.json  2>/dev/null || true
+            cp /tmp/prod/model_metrics.json data/model_metrics.json 2>/dev/null || true
+            python -m src.monitoring.notify "Retrain REJETÉ par l'eval-gate (régression log_loss). Modèle production conservé."
+          fi
+
       - name: Prédictions des matchs à venir
+        env:
+          BETSAPI_TOKEN: ${{ secrets.BETSAPI_TOKEN }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          BETFAIR_APP_KEY: ${{ secrets.BETFAIR_APP_KEY }}
+          BETFAIR_USERNAME: ${{ secrets.BETFAIR_USERNAME }}
+          BETFAIR_PASSWORD: ${{ secrets.BETFAIR_PASSWORD }}
         run: python scripts/predict_upcoming.py --days 7 --model lgbm
         continue-on-error: true
 
@@ -70,6 +118,7 @@ jobs:
                   data/lgbm_metrics.json \
                   data/lgbm_shap_importance.csv \
                   data/lgbm_calibration.csv \
+                  data/lgbm_calibration_report.json \
                   data/elo_baseline_metrics.json \
                   data/predictions.json
           if git diff --staged --quiet; then
@@ -78,3 +127,7 @@ jobs:
             git commit -m "chore(autonomie): mise à jour hebdomadaire (données, modèle, prédictions)"
             git push
           fi
+
+      - name: Alerte Telegram en cas d'échec du workflow
+        if: failure()
+        run: python -m src.monitoring.notify "❌ Workflow d'autonomie ÉCHOUÉ (run ${{ github.run_id }}) — voir les logs GitHub Actions."
