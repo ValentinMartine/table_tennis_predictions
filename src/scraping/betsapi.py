@@ -146,3 +146,75 @@ class BetsAPIScraper(BaseScraper):
             sets_detail=event.get("scores"),
             odds_source="betsapi",
         )
+
+
+def get_table_tennis_odds_betsapi(token: str, days_ahead: int = 7) -> list[dict]:
+    """
+    Point d'entrée pour l'enrichissement de cotes : matchs TT à venir + cotes bet365.
+
+    Retourne une liste de {home, away, odds_home, odds_away, source:'betsapi'},
+    au même format que les autres sources (Betfair, Sofascore, The Odds API).
+
+    Source commerciale fiable (fonctionne en CI, sans géo-blocage ni throttling) ;
+    nécessite un BETSAPI_TOKEN valide. Défensif : renvoie [] à la moindre erreur.
+    """
+    import time as _t
+    import requests
+
+    if not token:
+        return []
+
+    base_v1 = "https://api.betsapi.com/v1"
+    base_v2 = "https://api.betsapi.com/v2"
+    cutoff = _t.time() + days_ahead * 86400
+    results: list[dict] = []
+    try:
+        page = 1
+        events: list[dict] = []
+        while page <= 10:
+            r = requests.get(f"{base_v1}/events/upcoming",
+                             params={"sport_id": SPORT_ID, "token": token, "page": page}, timeout=15)
+            if not r.ok:
+                break
+            data = r.json()
+            if data.get("success") != 1:
+                break
+            batch = data.get("results", [])
+            events.extend(batch)
+            pager = data.get("pager", {})
+            if page >= pager.get("total_pages", 1) or not batch:
+                break
+            page += 1
+
+        for ev in events:
+            t_raw = ev.get("time")
+            try:
+                if t_raw and float(t_raw) > cutoff:
+                    continue
+            except (TypeError, ValueError):
+                pass
+            eid = ev.get("id")
+            home = (ev.get("home") or {}).get("name", "")
+            away = (ev.get("away") or {}).get("name", "")
+            if not eid or not home or not away:
+                continue
+            ro = requests.get(f"{base_v2}/event/odds/summary",
+                              params={"event_id": eid, "token": token}, timeout=15)
+            if not ro.ok:
+                continue
+            market = (ro.json().get("results", {}) or {}).get("1_1", {})
+            o1 = o2 = 0.0
+            for outcome in market.get("odds", []):
+                if outcome.get("id") == "1":
+                    o1 = float(outcome.get("odds", 0) or 0)
+                elif outcome.get("id") == "2":
+                    o2 = float(outcome.get("odds", 0) or 0)
+            if o1 > 1.0 and o2 > 1.0:
+                results.append({"home": home, "away": away,
+                                "odds_home": o1, "odds_away": o2, "source": "betsapi"})
+    except requests.RequestException as e:
+        logger.warning(f"BetsAPI odds à venir : {e}")
+        return results
+
+    logger.info(f"BetsAPI : {len(results)} matchs TT avec cotes")
+    return results

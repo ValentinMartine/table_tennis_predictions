@@ -180,29 +180,40 @@ def enrich_with_bookmaker_odds(matches: list[dict], api_key: str) -> list[dict]:
     Enrichit les matchs avec des cotes bookmaker.
 
     Ordre de priorité :
-      1. Betfair Exchange (si BETFAIR_APP_KEY/USERNAME/PASSWORD définis)
-      2. The Odds API    (si api_key défini et TT disponible)
+      1. BetsAPI          (si BETSAPI_TOKEN défini — fiable en CI, bonne couverture TT)
+      2. Betfair Exchange (si BETFAIR_APP_KEY/USERNAME/PASSWORD définis — cotes sans marge)
+      3. The Odds API     (si api_key défini et TT disponible)
 
     Modifie la liste en place et la retourne.
     """
     import os
     from src.scraping.betfair import get_table_tennis_odds_betfair
+    from src.scraping.betsapi import get_table_tennis_odds_betsapi
+
+    total_matched = 0
+
+    # 1. BetsAPI (source commerciale la plus fiable, prioritaire)
+    betsapi_token = os.getenv("BETSAPI_TOKEN", "")
+    if betsapi_token:
+        ba_events = get_table_tennis_odds_betsapi(betsapi_token)
+        if ba_events:
+            n = _apply_odds_to_matches(matches, ba_events, "BetsAPI")
+            total_matched += n
+            logger.info(f"BetsAPI : {n}/{len(matches)} matchs appariés")
 
     bf_key  = os.getenv("BETFAIR_APP_KEY", "")
     bf_user = os.getenv("BETFAIR_USERNAME", "")
     bf_pass = os.getenv("BETFAIR_PASSWORD", "")
 
-    total_matched = 0
-
-    # 1. Betfair Exchange
-    if bf_key and bf_user and bf_pass:
+    # 2. Betfair Exchange
+    if bf_key and bf_user and bf_pass and total_matched < len(matches):
         bf_events = get_table_tennis_odds_betfair(bf_key, bf_user, bf_pass)
         if bf_events:
             n = _apply_odds_to_matches(matches, bf_events, "Betfair Exchange")
             total_matched += n
             logger.info(f"Betfair Exchange : {n}/{len(matches)} matchs appariés")
 
-    # 2. The Odds API (fallback — couverture TT limitée)
+    # 3. The Odds API (fallback — couverture TT limitée)
     if api_key and total_matched < len(matches):
         api_events = get_table_tennis_odds(api_key)
         if api_events:

@@ -55,13 +55,25 @@ Un pipeline [GitHub Actions](.github/workflows/autonomy.yml) s'exécute chaque s
 (et à la demande) pour maintenir le projet à jour sans intervention :
 
 1. collecte des résultats récents ;
-2. stockage des cotes bookmaker des matchs à venir (The Odds API) ;
+2. stockage des cotes bookmaker des matchs à venir (Betfair Exchange en priorité,
+   puis The Odds API en repli) ;
 3. réentraînement du modèle sur l'historique enrichi ;
 4. prédictions des matchs à venir et backtest crédible (vraies cotes uniquement) ;
 5. régénération de l'artefact web `data/predictions.json` et commit de l'état mis à jour.
 
-La base de matchs et le modèle grossissent ainsi au fil des tournois. La seule
-configuration requise est le secret de dépôt `ODDS_API_KEY` (The Odds API, palier gratuit).
+La base de matchs et le modèle grossissent ainsi au fil des tournois. Les sources de
+cotes sont facultatives et se configurent via des secrets de dépôt ; au moins une est
+nécessaire pour enrichir les cotes :
+
+- **Betfair Exchange** (prioritaire, cotes sans marge) : `BETFAIR_APP_KEY`,
+  `BETFAIR_USERNAME`, `BETFAIR_PASSWORD`.
+- **The Odds API** (repli, palier gratuit) : `ODDS_API_KEY`.
+
+Tester la connexion Betfair en local une fois les identifiants renseignés dans `.env` :
+
+```bash
+python scripts/test_betfair.py --days 14
+```
 
 ## Limites
 
