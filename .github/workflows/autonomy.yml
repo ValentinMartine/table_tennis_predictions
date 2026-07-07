@@ -14,7 +14,7 @@ name: Autonomie (collecte, réentraînement, prédictions)
 #   - Betfair Exchange (cotes sans marge)                     : BETFAIR_APP_KEY/USERNAME/PASSWORD
 #   - The Odds API (repli)                                    : ODDS_API_KEY
 # Alerting (facultatif)   : TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-# Synchro site (facultatif): SITE_REPO_TOKEN (PAT avec accès en écriture au dépôt du site)
+# Synchro site (facultatif): SITE_SSH_KEY (clé de déploiement SSH write du dépôt du site)
 #   -> copie predictions.json vers valentinmartine/public/data/tt_predictions.json (Vercel redéploie)
 
 on:
@@ -132,14 +132,18 @@ jobs:
 
       - name: Synchronise le site (valentinmartine.com)
         env:
-          SITE_REPO_TOKEN: ${{ secrets.SITE_REPO_TOKEN }}
+          SITE_SSH_KEY: ${{ secrets.SITE_SSH_KEY }}
         run: |
-          if [ -z "$SITE_REPO_TOKEN" ]; then
-            echo "SITE_REPO_TOKEN absent — synchro du site ignorée."
+          if [ -z "$SITE_SSH_KEY" ]; then
+            echo "SITE_SSH_KEY absent — synchro du site ignorée."
             exit 0
           fi
-          git clone --depth 1 \
-            "https://x-access-token:${SITE_REPO_TOKEN}@github.com/ValentinMartine/valentinmartine.git" site_repo
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SITE_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes"
+          git clone --depth 1 git@github.com:ValentinMartine/valentinmartine.git site_repo
           cp data/predictions.json site_repo/public/data/tt_predictions.json
           cd site_repo
           git config user.name "tt-autonomy-bot"
