@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T07:57:03+00:00",
+  "generated_at": "2026-07-07T08:13:19+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
@@ -161,30 +161,5 @@
       "profit_total": 6.58
     }
   },
-  "upcoming": [
-    {
-      "date": "?",
-      "tournament": "ITTF Men’s & Women’s World Cup",
-      "p1": "SUN Yingsha",
-      "p2": "WINTER Sabine",
-      "p1_prob": 0.754,
-      "favorite": "SUN Yingsha",
-      "confidence": 0.754,
-      "edge": null,
-      "wtt_p1": 9,
-      "wtt_p2": 36
-    },
-    {
-      "date": "?",
-      "tournament": "ITTF Men’s & Women’s World Cup",
-      "p1": "LIN Yun-Ju",
-      "p2": "MATSUSHIMA Sora",
-      "p1_prob": 0.458,
-      "favorite": "MATSUSHIMA Sora",
-      "confidence": 0.542,
-      "edge": null,
-      "wtt_p1": 22,
-      "wtt_p2": 23
-    }
-  ]
+  "upcoming": []
 }
