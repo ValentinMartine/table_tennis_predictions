@@ -406,7 +406,7 @@ def _try_sofascore_session():
         try:
             s = cffi_requests.Session(impersonate=target)
             s.headers.update(_CFFI_HEADERS)
-            test = s.get(f"{API_BASE}/sport/table-tennis/scheduled-events/{date.today()}", timeout=8)
+            test = s.get(f"{API_BASE}/sport/table-tennis/events/live", timeout=8)
             if test.status_code == 200:
                 logger.info(f"Sofascore accessible avec impersonate={target}")
                 return s
@@ -416,6 +416,47 @@ def _try_sofascore_session():
     _sofascore_blocked_until = _time_module.time() + _SOFASCORE_BLOCK_TTL
     logger.warning(f"Sofascore bloqué -fallback WTT API (retry dans {_SOFASCORE_BLOCK_TTL//60}min)")
     return None
+
+
+def _gather_events_via_tournaments(session, days: int) -> list[dict]:
+    """
+    Découvre les matchs TT via les tournois actifs.
+
+    Remplace l'endpoint `scheduled-events/{date}` (mort, HTTP 404 depuis mi-2026) :
+    combine les matchs live et les prochains matchs (`events/next`) de chaque tournoi
+    actuellement en cours. Couvre donc les compétitions actives et leurs matchs à venir.
+    """
+    import time as _t
+    cutoff = _t.time() + (days + 1) * 86400
+    events: list[dict] = []
+    seen: set = set()
+
+    live = (_sfetch(session, f"{API_BASE}/sport/table-tennis/events/live") or {}).get("events", [])
+    tourneys: set = set()
+    for ev in live:
+        eid = ev.get("id")
+        if eid and eid not in seen:
+            seen.add(eid)
+            events.append(ev)
+        ut = ev.get("tournament", {}).get("uniqueTournament", {}).get("id")
+        sid = ev.get("season", {}).get("id")
+        if ut and sid:
+            tourneys.add((ut, sid))
+
+    for ut, sid in tourneys:
+        data = _sfetch(session, f"{API_BASE}/unique-tournament/{ut}/season/{sid}/events/next/0") or {}
+        for ev in data.get("events", []):
+            ts = ev.get("startTimestamp", 0) or 0
+            if ts and ts > cutoff:
+                continue
+            eid = ev.get("id")
+            if eid and eid not in seen:
+                seen.add(eid)
+                events.append(ev)
+        _t.sleep(0.4)
+
+    logger.info(f"Découverte par tournois : {len(events)} événements ({len(tourneys)} tournois actifs)")
+    return events
 
 
 def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = False) -> tuple[list[dict], str]:
@@ -436,9 +477,7 @@ def fetch_upcoming_matches(session=None, days: int = 7, all_leagues: bool = Fals
     all_tournament_names: set[str] = set()
     all_status_types: set[str] = set()
     total_events = 0
-    for d in range(days + 1):
-        day = date.today() + timedelta(days=d)
-        data = _sfetch(session, f"{API_BASE}/sport/table-tennis/scheduled-events/{day}")
+    for data in ({"events": _gather_events_via_tournaments(session, days)},):
         for ev in data.get("events", []):
             eid = ev.get("id")
             if not eid or eid in seen_ids:
@@ -772,6 +811,10 @@ def main():
     logger.info(f"Source: {source}")
     if not upcoming:
         logger.info("Aucun match WTT/international à venir trouvé")
+        # Écrit un CSV vide (entête seul) pour ne jamais laisser de prédictions périmées
+        cols = ["Date", "Tournoi", "J1", "J2", "P(J1)", "P(J2)",
+                "Favori", "Confiance", "Edge", "WTT#J1", "WTT#J2"]
+        pd.DataFrame(columns=cols).to_csv("data/upcoming_predictions.csv", index=False)
         return
 
     import os
