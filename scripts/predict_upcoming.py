@@ -418,6 +418,47 @@ def _try_sofascore_session():
     return None
 
 
+def _discover_wtt_via_search(session, days: int, max_tournaments: int = 20) -> list[dict]:
+    """
+    Trouve les prochains matchs des tournois WTT/ITTF même s'ils ne sont pas encore
+    « live », via la recherche Sofascore. Auto-adaptatif : pas de liste d'IDs à
+    maintenir (chaque édition WTT a un ID différent). Défensif et borné (coût maîtrisé).
+    """
+    import time as _t
+    cutoff = _t.time() + (days + 1) * 86400
+    tournament_ids: dict = {}
+    for q in ("WTT", "ITTF World"):
+        data = _sfetch(session, f"{API_BASE}/search/unique-tournaments?q={q}&page=0") or {}
+        for r in data.get("results", []):
+            e = r.get("entity", r)
+            cat = e.get("category", {}) or {}
+            sport = (cat.get("sport", {}) or {}).get("slug", "")
+            if e.get("id") and (sport == "table-tennis" or "table" in str(cat.get("name", "")).lower()):
+                tournament_ids[e["id"]] = e.get("name", "")
+        _t.sleep(0.3)
+
+    events, seen = [], set()
+    for tid in list(tournament_ids)[:max_tournaments]:
+        seasons = (_sfetch(session, f"{API_BASE}/unique-tournament/{tid}/seasons") or {}).get("seasons", [])
+        if not seasons:
+            continue
+        sid = seasons[0].get("id")
+        data = _sfetch(session, f"{API_BASE}/unique-tournament/{tid}/season/{sid}/events/next/0") or {}
+        for ev in data.get("events", []):
+            ts = ev.get("startTimestamp", 0) or 0
+            if ts and ts > cutoff:
+                continue
+            eid = ev.get("id")
+            if eid and eid not in seen:
+                seen.add(eid)
+                events.append(ev)
+        _t.sleep(0.3)
+
+    if events:
+        logger.info(f"Découverte WTT (recherche) : {len(events)} matchs sur {len(tournament_ids)} tournois trouvés")
+    return events
+
+
 def _gather_events_via_tournaments(session, days: int) -> list[dict]:
     """
     Découvre les matchs TT via les tournois actifs.
@@ -455,7 +496,14 @@ def _gather_events_via_tournaments(session, days: int) -> list[dict]:
                 events.append(ev)
         _t.sleep(0.4)
 
-    logger.info(f"Découverte par tournois : {len(events)} événements ({len(tourneys)} tournois actifs)")
+    # Ajoute les prochains matchs des tournois WTT/ITTF même s'ils ne sont pas live
+    for ev in _discover_wtt_via_search(session, days):
+        eid = ev.get("id")
+        if eid and eid not in seen:
+            seen.add(eid)
+            events.append(ev)
+
+    logger.info(f"Découverte par tournois : {len(events)} événements ({len(tourneys)} tournois actifs + recherche WTT)")
     return events
 
 
