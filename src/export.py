@@ -100,11 +100,21 @@ def build() -> Path:
 
     backtest = _load_json("backtest_bankroll.json") or None
 
+    # Qualité de calibration (ECE/MCE + décomposition de Brier), si disponible
+    cr = _load_json("lgbm_calibration_report.json")
+    calibration_quality = {
+        "ece": cr.get("ece"),
+        "mce": cr.get("mce"),
+        "brier_reliability": cr.get("brier_reliability"),
+        "brier_resolution": cr.get("brier_resolution"),
+    } if cr else None
+
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
         "metrics": metrics,
         "calibration": calibration,
+        "calibration_quality": calibration_quality,
         "feature_importance": feature_importance,
         "backtest": backtest,
         "upcoming": upcoming,
