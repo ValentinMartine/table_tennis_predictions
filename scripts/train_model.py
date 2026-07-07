@@ -188,7 +188,10 @@ def main():
         else:
             model = XGBModel(args.config, params=params)
             
-        model.fit(df_train, df_val=df_val if args.calib_on_val else None)
+        if model_name == "lgbm":
+            model.fit(df_train, df_val=df_val if args.calib_on_val else None, df_blend=df_val)
+        else:
+            model.fit(df_train, df_val=df_val if args.calib_on_val else None)
 
         preds_val  = model.predict_proba(df_val)
         preds_test = model.predict_proba(df_test)

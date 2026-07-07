@@ -75,6 +75,10 @@ class LGBMModel:
         self.model = CalibratedClassifierCV(self.base_model, method="isotonic", cv=5)
         self.feature_cols = FEATURE_COLS
         self._is_fitted = False
+        # Blend avec la baseline Elo : predict = w*ML + (1-w)*elo_win_prob_p1.
+        # w est réglé sur la validation (min log-loss). Bat l'Elo seul et le ML seul.
+        self.elo_blend = params.get("elo_blend", True) if isinstance(params, dict) else True
+        self.elo_blend_weight = None
 
     def _get_features(self, df: pd.DataFrame) -> pd.DataFrame:
         available = [c for c in self.feature_cols if c in df.columns]
@@ -86,7 +90,8 @@ class LGBMModel:
             X[col] = 0.0
         return X[self.feature_cols]
 
-    def fit(self, df_train: pd.DataFrame, df_val: pd.DataFrame = None) -> None:
+    def fit(self, df_train: pd.DataFrame, df_val: pd.DataFrame = None,
+            df_blend: pd.DataFrame = None) -> None:
         X = self._get_features(df_train)
         y = df_train["target"].values
         weights = df_train["sample_weight"].values if "sample_weight" in df_train.columns else None
@@ -107,13 +112,46 @@ class LGBMModel:
         else:
             self.model.fit(X, y, sample_weight=weights)
         self._is_fitted = True
+
+        # Réglage du poids de blend Elo sur un jeu HORS entraînement (val), sinon
+        # le ML est in-sample sur le train et w->1 (blend neutralisé).
+        if self.elo_blend:
+            df_tune = df_blend if df_blend is not None else df_val
+            if df_tune is None:
+                logger.warning("Blend Elo : pas de jeu de validation fourni, blend désactivé")
+                self.elo_blend_weight = None
+            else:
+                self.elo_blend_weight = self._tune_blend_weight(df_tune)
+            logger.info(f"Blend Elo activé : w(ML)={self.elo_blend_weight:.2f} "
+                        f"(1-w sur la baseline Elo)")
         logger.info("Entraînement terminé")
+
+    def _ml_proba(self, df: pd.DataFrame) -> np.ndarray:
+        """Probabilité ML brute (avant blend Elo)."""
+        X = self._get_features(df)
+        return self.model.predict_proba(X)[:, 1]
+
+    def _tune_blend_weight(self, df: pd.DataFrame) -> float:
+        """Poids ML minimisant la log-loss du blend w*ML + (1-w)*Elo."""
+        from sklearn.metrics import log_loss
+        if "elo_win_prob_p1" not in df.columns:
+            return 1.0
+        p_ml = self._ml_proba(df)
+        p_elo = df["elo_win_prob_p1"].clip(0.01, 0.99).values
+        y = df["target"].values
+        ws = np.linspace(0.0, 1.0, 21)
+        return float(min(ws, key=lambda w: log_loss(
+            y, np.clip(w * p_ml + (1 - w) * p_elo, 1e-6, 1 - 1e-6))))
 
     def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
         if not self._is_fitted:
             raise RuntimeError("Modèle non entraîné - appeler fit() d'abord")
-        X = self._get_features(df)
-        return self.model.predict_proba(X)[:, 1]
+        p = self._ml_proba(df)
+        if self.elo_blend_weight is not None and "elo_win_prob_p1" in df.columns:
+            w = self.elo_blend_weight
+            p_elo = df["elo_win_prob_p1"].clip(0.01, 0.99).values
+            p = w * p + (1.0 - w) * p_elo
+        return p
 
     def cross_validate(self, df: pd.DataFrame, n_splits: int = 5) -> dict:
         X = self._get_features(df)
