@@ -21,9 +21,14 @@ class TournamentSimulator:
         p1 = self._get_player_info(p1_name)
         p2 = self._get_player_info(p2_name)
         
+        # Rendre 0.5 ici reviendrait a affirmer un match parfaitement equilibre,
+        # que l'appelant ne peut plus distinguer d'un vrai 50/50. Avec un test
+        # `prob >= 0.5`, cela faisait gagner p1 a chaque joueur introuvable :
+        # le classement du groupe suivait l'ordre du tirage, pas le modele.
         if p1 is None or p2 is None:
-            return 0.5 # Unknown
-            
+            return None
+
+
         features = build_features_for_match(
             int(p1["id"]), int(p2["id"]),
             int(p1["ittf_rank"]), int(p2["ittf_rank"]),
@@ -60,7 +65,11 @@ class TournamentSimulator:
                     if p1 not in standings: standings[p1] = 0
                     if p2 not in standings: standings[p2] = 0
                     prob1 = self._predict_match(p1, p2)
-                    if prob1 >= 0.5:
+                    if prob1 is None:
+                        # Joueur inconnu du modele : on ne tranche pas, les deux
+                        # reparent a egalite plutot que d'inventer un vainqueur.
+                        standings[p1] += 1; standings[p2] += 1
+                    elif prob1 >= 0.5:
                         standings[p1] += 2; standings[p2] += 1
                     else:
                         standings[p2] += 2; standings[p1] += 1
@@ -103,8 +112,12 @@ class TournamentSimulator:
                 for i in range(0, len(current_players), 2):
                     p1, p2 = current_players[i], current_players[i+1]
                     p1_str, p2_str = str(p1), str(p2)
-                    prob1 = self._predict_match(p1_str, p2_str) if "Vainqueur" not in p1_str and "Vainqueur" not in p2_str else 0.5
-                    winner = p1 if prob1 >= 0.5 else p2
+                    participants_connus = "Vainqueur" not in p1_str and "Vainqueur" not in p2_str
+                    prob1 = self._predict_match(p1_str, p2_str) if participants_connus else None
+                    # Sans prediction exploitable, le tableau retient p1 pour
+                    # continuer la projection, mais prob_p1 reste None : la
+                    # sortie dit alors qu'il s'agit d'un choix par defaut.
+                    winner = p2 if prob1 is not None and prob1 < 0.5 else p1
                     next_round_players.append(winner)
                     all_projections.append({
                         "tournoi": t_name,

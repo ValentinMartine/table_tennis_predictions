@@ -444,18 +444,21 @@ def get_player_info(player_name: str) -> dict:
         WHERE name = :name
         LIMIT 1
     """, {"name": player_name})
+    # 25 ans par defaut faisait passer un age inconnu pour un age mesure :
+    # l'appelant ne pouvait plus distinguer un joueur ne en 2001 d'un joueur
+    # absent de la base. None dit ce qu'il en est.
     if df.empty:
-        return {"age": 25.0, "gender": None, "country": None}
+        return {"age": None, "gender": None, "country": None}
     row = df.iloc[0]
-    age = 25.0
+    age = None
     if row.get("date_of_birth"):
         try:
             dob = pd.to_datetime(row["date_of_birth"])
             age = (datetime.utcnow() - dob).days / 365.25
         except Exception:
-            pass
+            age = None
     return {
-        "age": round(age, 1),
+        "age": round(age, 1) if age is not None else None,
         "gender": row.get("gender"),
         "country": row.get("country"),
     }
