@@ -1,7 +1,3 @@
-import pandas as pd
-from loguru import logger
-from datetime import datetime, timedelta
-
 class TournamentSimulator:
     def __init__(self, model, player_map):
         self.model = model
@@ -62,13 +58,16 @@ class TournamentSimulator:
                 standings = {}
                 for m in matches:
                     p1, p2 = m["p1_name"], m["p2_name"]
-                    if p1 not in standings: standings[p1] = 0
-                    if p2 not in standings: standings[p2] = 0
+                    if p1 not in standings:
+                        standings[p1] = 0
+                    if p2 not in standings:
+                        standings[p2] = 0
                     prob1 = self._predict_match(p1, p2)
                     if prob1 is None:
                         # Joueur inconnu du modele : on ne tranche pas, les deux
                         # reparent a egalite plutot que d'inventer un vainqueur.
-                        standings[p1] += 1; standings[p2] += 1
+                        standings[p1] += 1
+                        standings[p2] += 1
                     elif prob1 >= 0.5:
                         standings[p1] += 2; standings[p2] += 1
                     else:

@@ -27,3 +27,4 @@ loguru>=0.7.0
 # Dashboard
 streamlit>=1.40.0
 plotly>=5.24.0
+matplotlib>=3.9.0

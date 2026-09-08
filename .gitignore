@@ -1,5 +1,7 @@
 # Python
 __pycache__/
+.pytest_cache/
+.ruff_cache/
 *.py[cod]
 *.pyo
 .venv/
@@ -21,6 +23,7 @@ data/*
 !data/xgb_shap_importance.csv
 !data/shap_importance.csv
 !data/lgbm_calibration.csv
+!data/lgbm_calibration_report.json
 !data/xgb_calibration.csv
 !data/calibration_data.csv
 !data/elo_baseline_metrics.json
