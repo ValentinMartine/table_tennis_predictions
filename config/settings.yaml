@@ -60,6 +60,11 @@ competitions:
       country: DE
       source: betsapi
       priority: 2
+    - id: betsapi_table_tennis
+      name: "BetsAPI Table Tennis"
+      country: INT
+      source: betsapi
+      priority: 2
     - id: ittf_pro_league
       name: "ITTF Pro League"
       country: INT
@@ -243,8 +248,10 @@ models:
 
 betting:
   kelly_fraction: 0.25              # quart Kelly
-  min_edge: 0.03                    # edge minimum pour parier (3%)
-  min_confidence: 0.55              # proba minimum
+  min_edge: 0.05                    # edge minimum pour parier (5%)
+  min_confidence: 0.75              # seuil conservateur : meilleur compromis descriptif
+                                    # actuel (79 paris, ROI positif), à confirmer par
+                                    # davantage de cotes historiques en walk-forward
   max_stake_pct: 0.02               # max 2% bankroll par pari
   min_odds: 1.60
   max_odds: 3.50

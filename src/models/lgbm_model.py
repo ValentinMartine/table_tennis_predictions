@@ -186,6 +186,8 @@ class LGBMModel:
         X = self._get_features(df).head(n_samples)
         # CalibratedClassifierCV entraîne des clones - récupérer le premier estimateur fitté
         fitted_estimator = self.model.calibrated_classifiers_[0].estimator
+        if hasattr(fitted_estimator, "estimator"):
+            fitted_estimator = fitted_estimator.estimator
         explainer = shap.TreeExplainer(fitted_estimator)
         shap_values = explainer.shap_values(X)
         if isinstance(shap_values, list):

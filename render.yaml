@@ -8,3 +8,39 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
+      - key: BETSAPI_TOKEN
+        sync: false
+      - key: ODDSPAPI_KEY
+        sync: false
+      - key: ODDS_API_KEY
+        sync: false
+      - key: BETFAIR_APP_KEY
+        sync: false
+      - key: BETFAIR_USERNAME
+        sync: false
+      - key: BETFAIR_PASSWORD
+        sync: false
+  - type: web
+    name: table-tennis-predictions-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: uvicorn src.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: CORS_ORIGINS
+        value: "https://www.valentinmartine.com,https://valentinmartine.com"
+      - key: BETSAPI_TOKEN
+        sync: false
+      - key: ODDSPAPI_KEY
+        sync: false
+      - key: ODDS_API_KEY
+        sync: false
+      - key: BETFAIR_APP_KEY
+        sync: false
+      - key: BETFAIR_USERNAME
+        sync: false
+      - key: BETFAIR_PASSWORD
+        sync: false

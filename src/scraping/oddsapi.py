@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 import requests
 from loguru import logger
 
+from src.scraping.oddspapi import get_table_tennis_odds_oddspapi, is_usable_secret
+
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 _SPORT_KEY = "table_tennis"
 _REGIONS = "eu"          # eu bookmakers (Pinnacle, Bet365, Unibet…)
@@ -57,7 +59,7 @@ def get_table_tennis_odds(api_key: str) -> list[dict]:
           "requests_remaining": int,
         }
     """
-    if not api_key:
+    if not is_usable_secret(api_key):
         logger.warning("ODDS_API_KEY non défini — odds bookmaker désactivées")
         return []
 
@@ -133,7 +135,7 @@ def _best_h2h(bookmakers: list[dict], home: str, away: str) -> tuple[float, floa
 
 def is_table_tennis_available(api_key: str) -> bool:
     """Vérifie si le tennis de table est disponible sur The Odds API."""
-    if not api_key:
+    if not is_usable_secret(api_key):
         return False
     try:
         resp = requests.get(
@@ -194,7 +196,7 @@ def enrich_with_bookmaker_odds(matches: list[dict], api_key: str) -> list[dict]:
 
     # 1. BetsAPI (source commerciale la plus fiable, prioritaire)
     betsapi_token = os.getenv("BETSAPI_TOKEN", "")
-    if betsapi_token:
+    if is_usable_secret(betsapi_token):
         ba_events = get_table_tennis_odds_betsapi(betsapi_token)
         if ba_events:
             n = _apply_odds_to_matches(matches, ba_events, "BetsAPI")
@@ -206,15 +208,23 @@ def enrich_with_bookmaker_odds(matches: list[dict], api_key: str) -> list[dict]:
     bf_pass = os.getenv("BETFAIR_PASSWORD", "")
 
     # 2. Betfair Exchange
-    if bf_key and bf_user and bf_pass and total_matched < len(matches):
+    if all(is_usable_secret(v) for v in (bf_key, bf_user, bf_pass)) and total_matched < len(matches):
         bf_events = get_table_tennis_odds_betfair(bf_key, bf_user, bf_pass)
         if bf_events:
             n = _apply_odds_to_matches(matches, bf_events, "Betfair Exchange")
             total_matched += n
             logger.info(f"Betfair Exchange : {n}/{len(matches)} matchs appariés")
 
-    # 3. The Odds API (fallback — couverture TT limitée)
-    if api_key and total_matched < len(matches):
+    # 3. OddsPapi (fallback avec tennis de table + historique selon le compte)
+    oddspapi_key = os.getenv("ODDSPAPI_KEY", "")
+    if is_usable_secret(oddspapi_key) and total_matched < len(matches):
+        op_events = get_table_tennis_odds_oddspapi(oddspapi_key)
+        if op_events:
+            n = _apply_odds_to_matches(matches, op_events, "OddsPapi")
+            total_matched += n
+            logger.info(f"OddsPapi : {n}/{len(matches)} matchs appariés")
+
+    if is_usable_secret(api_key) and total_matched < len(matches):
         api_events = get_table_tennis_odds(api_key)
         if api_events:
             n = _apply_odds_to_matches(matches, api_events, "The Odds API")

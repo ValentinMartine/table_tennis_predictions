@@ -99,6 +99,8 @@ def build() -> Path:
             })
 
     backtest = _load_json("backtest_bankroll.json") or None
+    betting_thresholds = _load_json("betting_thresholds.json") or None
+    walk_forward = _load_json("walk_forward_backtest.json") or None
 
     # Qualité de calibration (ECE/MCE + décomposition de Brier), si disponible
     cr = _load_json("lgbm_calibration_report.json")
@@ -117,6 +119,8 @@ def build() -> Path:
         "calibration_quality": calibration_quality,
         "feature_importance": feature_importance,
         "backtest": backtest,
+        "betting_thresholds": betting_thresholds,
+        "walk_forward": walk_forward,
         "upcoming": upcoming,
     }
 

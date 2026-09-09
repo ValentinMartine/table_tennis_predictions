@@ -27,3 +27,7 @@ loguru>=0.7.0
 # Dashboard
 streamlit>=1.40.0
 plotly>=5.24.0
+
+# API on-demand
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0

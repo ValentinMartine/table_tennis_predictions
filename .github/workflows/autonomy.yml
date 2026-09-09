@@ -10,9 +10,10 @@ name: Autonomie (collecte, réentraînement, prédictions)
 #   7. alerte Telegram en cas d'échec ou de rejet du retrain
 #
 # Sources de cotes (secrets de dépôt, toutes facultatives ; au moins une conseillée) :
-#   - BetsAPI (recommandé, fiable en CI, bonne couverture TT) : BETSAPI_TOKEN
+#   - BetsAPI (si compte valide)                              : BETSAPI_TOKEN
 #   - Betfair Exchange (cotes sans marge)                     : BETFAIR_APP_KEY/USERNAME/PASSWORD
-#   - The Odds API (repli)                                    : ODDS_API_KEY
+#   - OddsPapi (repli avec tennis de table + historique 2026) : ODDSPAPI_KEY
+#   - The Odds API (repli, selon couverture TT du compte)      : ODDS_API_KEY
 # Alerting (facultatif)   : TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 # Synchro site (facultatif): SITE_SSH_KEY (clé de déploiement SSH write du dépôt du site)
 #   -> copie predictions.json vers valentinmartine/public/data/tt_predictions.json (Vercel redéploie)
@@ -58,9 +59,10 @@ jobs:
         run: python scripts/run_scraper.py --days 10 --priority 2
         continue-on-error: true # les IP CI peuvent être bloquées par les sources
 
-      - name: Stockage des cotes bookmaker (BetsAPI / Betfair / The Odds API)
+      - name: Stockage des cotes bookmaker (BetsAPI / Betfair / OddsPapi / The Odds API)
         env:
           BETSAPI_TOKEN: ${{ secrets.BETSAPI_TOKEN }}
+          ODDSPAPI_KEY: ${{ secrets.ODDSPAPI_KEY }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           BETFAIR_APP_KEY: ${{ secrets.BETFAIR_APP_KEY }}
           BETFAIR_USERNAME: ${{ secrets.BETFAIR_USERNAME }}
@@ -96,6 +98,7 @@ jobs:
       - name: Prédictions des matchs à venir
         env:
           BETSAPI_TOKEN: ${{ secrets.BETSAPI_TOKEN }}
+          ODDSPAPI_KEY: ${{ secrets.ODDSPAPI_KEY }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           BETFAIR_APP_KEY: ${{ secrets.BETFAIR_APP_KEY }}
           BETFAIR_USERNAME: ${{ secrets.BETFAIR_USERNAME }}

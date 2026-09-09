@@ -67,7 +67,16 @@ nécessaire pour enrichir les cotes :
 
 - **Betfair Exchange** (prioritaire, cotes sans marge) : `BETFAIR_APP_KEY`,
   `BETFAIR_USERNAME`, `BETFAIR_PASSWORD`.
+- **OddsPapi** (repli si BetsAPI indisponible, couverture tennis de table et historique
+  2026 selon le compte) : `ODDSPAPI_KEY`.
 - **The Odds API** (repli, palier gratuit) : `ODDS_API_KEY`.
+
+Backfill historique sans BetsAPI :
+
+```bash
+python scripts/backfill_oddspapi_odds.py --from-date 2026-01-01 --to-date 2026-07-01 --dry-run
+python scripts/backfill_oddspapi_odds.py --from-date 2026-01-01 --to-date 2026-07-01
+```
 
 Tester la connexion Betfair en local une fois les identifiants renseignés dans `.env` :
 
