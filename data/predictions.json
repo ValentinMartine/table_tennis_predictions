@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-09T07:52:40+00:00",
+  "generated_at": "2026-09-13T11:16:14+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
@@ -148,5 +148,42 @@
   },
   "betting_thresholds": null,
   "walk_forward": null,
-  "upcoming": []
+  "upcoming": [
+    {
+      "date": "13/09 12:00",
+      "tournament": "WTT Champions Macao 2026 Prese",
+      "p1": "CALDERANO Hugo",
+      "p2": "MOREGARD Truls",
+      "p1_prob": 0.631,
+      "favorite": "CALDERANO Hugo",
+      "confidence": 0.631,
+      "edge": null,
+      "wtt_p1": null,
+      "wtt_p2": null
+    },
+    {
+      "date": "13/09 12:00",
+      "tournament": "WTT Contender Panagyurishte 20",
+      "p1": "RANEFUR Elias",
+      "p2": "OVTCHAROV Dimitrij",
+      "p1_prob": 0.401,
+      "favorite": "OVTCHAROV Dimitrij",
+      "confidence": 0.599,
+      "edge": null,
+      "wtt_p1": null,
+      "wtt_p2": null
+    },
+    {
+      "date": "13/09 12:00",
+      "tournament": "WTT Contender Panagyurishte 20",
+      "p1": "SATO Hitomi",
+      "p2": "YOKOI Sakura",
+      "p1_prob": 0.406,
+      "favorite": "YOKOI Sakura",
+      "confidence": 0.594,
+      "edge": null,
+      "wtt_p1": null,
+      "wtt_p2": null
+    }
+  ]
 }
