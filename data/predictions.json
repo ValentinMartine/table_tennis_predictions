@@ -1,189 +1,151 @@
 {
-  "generated_at": "2026-09-13T11:26:59+00:00",
+  "generated_at": "2026-09-14T12:02:03+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
-    "accuracy": 0.6986,
-    "roc_auc": 0.7768,
-    "log_loss": 0.565,
-    "brier": 0.1922,
+    "accuracy": 0.7022,
+    "roc_auc": 0.777,
+    "log_loss": 0.5651,
+    "brier": 0.1921,
     "n_test": 5920,
     "elo_accuracy": 0.6912,
     "elo_log_loss": 0.5777
   },
   "calibration": [
     {
-      "pred": 0.0649,
-      "observed": 0.0476
+      "pred": 0.065,
+      "observed": 0.0648
     },
     {
-      "pred": 0.1599,
-      "observed": 0.1408
+      "pred": 0.1585,
+      "observed": 0.1284
     },
     {
-      "pred": 0.2523,
-      "observed": 0.2504
+      "pred": 0.252,
+      "observed": 0.2452
     },
     {
-      "pred": 0.351,
-      "observed": 0.3365
+      "pred": 0.3514,
+      "observed": 0.3437
     },
     {
-      "pred": 0.4581,
-      "observed": 0.4552
+      "pred": 0.4491,
+      "observed": 0.4346
     },
     {
-      "pred": 0.5511,
-      "observed": 0.5423
+      "pred": 0.5449,
+      "observed": 0.5476
     },
     {
-      "pred": 0.6496,
-      "observed": 0.6627
+      "pred": 0.6499,
+      "observed": 0.6691
     },
     {
-      "pred": 0.7487,
+      "pred": 0.7505,
       "observed": 0.7838
     },
     {
-      "pred": 0.8457,
-      "observed": 0.9043
+      "pred": 0.8465,
+      "observed": 0.9021
     },
     {
-      "pred": 0.9206,
-      "observed": 0.971
+      "pred": 0.9193,
+      "observed": 0.9583
     }
   ],
   "calibration_quality": {
-    "ece": 0.0184,
-    "mce": 0.0586,
-    "brier_reliability": 0.00065,
-    "brier_resolution": 0.05592
+    "ece": 0.0191,
+    "mce": 0.0556,
+    "brier_reliability": 0.00063,
+    "brier_resolution": 0.05606
   },
   "feature_importance": [
     {
-      "feature": "glicko_win_prob_p1",
-      "value": 0.3239
-    },
-    {
       "feature": "glicko_diff",
-      "value": 0.3068
+      "value": 0.3368
     },
     {
       "feature": "glicko_rd_p1",
-      "value": 0.2945
+      "value": 0.3251
     },
     {
-      "feature": "glicko_rd_p2",
-      "value": 0.2331
+      "feature": "glicko_win_prob_p1",
+      "value": 0.2997
     },
     {
       "feature": "glicko_rd_diff",
-      "value": 0.2277
+      "value": 0.2442
+    },
+    {
+      "feature": "glicko_rd_p2",
+      "value": 0.2152
     },
     {
       "feature": "elo_diff",
-      "value": 0.1855
-    },
-    {
-      "feature": "rest_hours_p2",
-      "value": 0.1789
+      "value": 0.1896
     },
     {
       "feature": "glicko_vol_p1",
-      "value": 0.1764
+      "value": 0.1784
+    },
+    {
+      "feature": "rest_hours_p2",
+      "value": 0.1698
     },
     {
       "feature": "form_p1",
-      "value": 0.1502
+      "value": 0.1696
     },
     {
       "feature": "avg_sets_p2",
-      "value": 0.148
+      "value": 0.1602
     }
   ],
   "backtest": {
     "initial_bankroll": 1000.0,
     "curve": [
-      980.0,
-      993.07,
-      973.21,
-      989.43,
-      1024.06,
-      1040.44,
-      1059.36,
-      1072.4,
-      1093.84,
-      1129.39,
-      1106.81,
-      1131.16,
-      1108.53,
-      1086.36,
-      1100.85,
-      1078.83,
-      1057.25,
-      1078.4,
-      1094.09,
-      1112.32,
-      1090.07,
-      1107.51,
-      1125.97,
-      1103.45,
-      1133.79,
-      1164.97,
-      1179.3,
-      1155.71,
-      1171.12
+      1016.0,
+      1029.55,
+      1008.96,
+      1044.27,
+      1060.98,
+      1080.27,
+      1093.56,
+      1129.11,
+      1106.52,
+      1130.87,
+      1108.25,
+      1086.08,
+      1100.57,
+      1155.59,
+      1132.48,
+      1109.83,
+      1132.03,
+      1148.5,
+      1125.53,
+      1144.28,
+      1121.4,
+      1139.34,
+      1158.32,
+      1135.16,
+      1166.37,
+      1198.45,
+      1213.19,
+      1229.37
     ],
     "stats": {
-      "n_bets": 29,
-      "roi_pct": 17.11,
-      "win_rate_pct": 65.52,
-      "avg_odds": 1.968,
-      "avg_edge_pct": 27.3,
-      "sharpe_ratio": 1.514,
-      "max_drawdown_pct": -6.53,
-      "final_bankroll": 1171.12,
-      "profit_total": 171.12
+      "n_bets": 28,
+      "roi_pct": 22.94,
+      "win_rate_pct": 67.86,
+      "avg_odds": 2.024,
+      "avg_edge_pct": 28.4,
+      "sharpe_ratio": 1.899,
+      "max_drawdown_pct": -3.96,
+      "final_bankroll": 1229.37,
+      "profit_total": 229.37
     }
   },
   "betting_thresholds": null,
   "walk_forward": null,
-  "upcoming": [
-    {
-      "date": "13/09 12:00",
-      "tournament": "WTT Champions Macao 2026 Prese",
-      "p1": "CALDERANO Hugo",
-      "p2": "MOREGARD Truls",
-      "p1_prob": 0.631,
-      "favorite": "CALDERANO Hugo",
-      "confidence": 0.631,
-      "edge": null,
-      "wtt_p1": null,
-      "wtt_p2": null
-    },
-    {
-      "date": "13/09 12:00",
-      "tournament": "WTT Contender Panagyurishte 20",
-      "p1": "RANEFUR Elias",
-      "p2": "OVTCHAROV Dimitrij",
-      "p1_prob": 0.401,
-      "favorite": "OVTCHAROV Dimitrij",
-      "confidence": 0.599,
-      "edge": null,
-      "wtt_p1": null,
-      "wtt_p2": null
-    },
-    {
-      "date": "13/09 12:00",
-      "tournament": "WTT Contender Panagyurishte 20",
-      "p1": "SATO Hitomi",
-      "p2": "YOKOI Sakura",
-      "p1_prob": 0.406,
-      "favorite": "YOKOI Sakura",
-      "confidence": 0.594,
-      "edge": null,
-      "wtt_p1": null,
-      "wtt_p2": null
-    }
-  ]
+  "upcoming": []
 }
