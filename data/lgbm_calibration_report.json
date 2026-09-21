@@ -1,82 +1,82 @@
 {
   "n_samples": 5920,
   "base_rate": 0.5326,
-  "brier": 0.1921,
-  "ece": 0.0191,
-  "mce": 0.0556,
-  "brier_reliability": 0.00063,
-  "brier_resolution": 0.05606,
+  "brier": 0.1922,
+  "ece": 0.0181,
+  "mce": 0.0527,
+  "brier_reliability": 0.00068,
+  "brier_resolution": 0.05658,
   "brier_uncertainty": 0.24894,
   "bins": [
     {
       "bin": 0,
-      "p_pred": 0.065,
-      "p_true": 0.0648,
-      "count": 108,
-      "gap": 0.0002
+      "p_pred": 0.0664,
+      "p_true": 0.0517,
+      "count": 116,
+      "gap": 0.0147
     },
     {
       "bin": 1,
-      "p_pred": 0.1585,
-      "p_true": 0.1284,
-      "count": 335,
-      "gap": 0.0301
+      "p_pred": 0.1595,
+      "p_true": 0.1315,
+      "count": 327,
+      "gap": 0.028
     },
     {
       "bin": 2,
-      "p_pred": 0.252,
-      "p_true": 0.2452,
-      "count": 624,
-      "gap": 0.0068
+      "p_pred": 0.2526,
+      "p_true": 0.25,
+      "count": 644,
+      "gap": 0.0026
     },
     {
       "bin": 3,
-      "p_pred": 0.3514,
-      "p_true": 0.3437,
-      "count": 771,
-      "gap": 0.0077
+      "p_pred": 0.3522,
+      "p_true": 0.337,
+      "count": 733,
+      "gap": 0.0153
     },
     {
       "bin": 4,
-      "p_pred": 0.4491,
-      "p_true": 0.4346,
-      "count": 780,
-      "gap": 0.0145
+      "p_pred": 0.4488,
+      "p_true": 0.4396,
+      "count": 787,
+      "gap": 0.0092
     },
     {
       "bin": 5,
-      "p_pred": 0.5449,
-      "p_true": 0.5476,
-      "count": 1019,
-      "gap": 0.0027
+      "p_pred": 0.5428,
+      "p_true": 0.5448,
+      "count": 1015,
+      "gap": 0.002
     },
     {
       "bin": 6,
-      "p_pred": 0.6499,
-      "p_true": 0.6691,
-      "count": 837,
-      "gap": 0.0192
+      "p_pred": 0.6507,
+      "p_true": 0.6548,
+      "count": 843,
+      "gap": 0.0041
     },
     {
       "bin": 7,
-      "p_pred": 0.7505,
-      "p_true": 0.7838,
-      "count": 703,
-      "gap": 0.0333
+      "p_pred": 0.75,
+      "p_true": 0.7983,
+      "count": 694,
+      "gap": 0.0483
     },
     {
       "bin": 8,
-      "p_pred": 0.8465,
-      "p_true": 0.9021,
-      "count": 623,
-      "gap": 0.0556
+      "p_pred": 0.8469,
+      "p_true": 0.8997,
+      "count": 638,
+      "gap": 0.0527
     },
     {
       "bin": 9,
-      "p_pred": 0.9193,
-      "p_true": 0.9583,
-      "count": 120,
-      "gap": 0.039
+      "p_pred": 0.9216,
+      "p_true": 0.9512,
+      "count": 123,
+      "gap": 0.0296
     }
   ]
 }
