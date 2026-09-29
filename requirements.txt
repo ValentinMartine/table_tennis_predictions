@@ -1,5 +1,5 @@
-# Requirements minimaux pour le déploiement Render (dashboard uniquement)
-# Exclut : selenium, playwright, telegram-bot, pytest, outils de scraping lourds
+# Dépendances de la CI d'autonomie (collecte, entraînement, prédictions).
+# Render installe requirements-deploy.txt ; fastapi et python-telegram-bot restent des outils locaux.
 
 # HTTP (pour Sofascore live dans l'onglet "Prochains matchs")
 requests>=2.32.0
@@ -28,3 +28,9 @@ loguru>=0.7.0
 streamlit>=1.40.0
 plotly>=5.24.0
 matplotlib>=3.9.0
+
+# Collecte (src/scraping, scripts) : leur absence faisait planter la collecte en CI
+tenacity>=9.0.0
+playwright>=1.58.0
+beautifulsoup4>=4.12.0
+rapidfuzz>=3.0.0

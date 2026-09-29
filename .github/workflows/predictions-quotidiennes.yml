@@ -1,0 +1,84 @@
+name: Prédictions quotidiennes (matchs à venir)
+
+# Le workflow d'autonomie ne tourne que le lundi : un tournoi commencé en semaine (China Smash,
+# du 1er au 11/10/2026) n'apparaissait jamais dans les matchs à venir. Ce passage quotidien
+# refait seulement les prédictions et l'artefact web, sans collecte ni réentraînement.
+
+on:
+  schedule:
+    - cron: "0 7 * * 2-7" # du mardi au dimanche 07:00 UTC ; le lundi, l'autonomie s'en charge
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autonomy
+  cancel-in-progress: false
+
+jobs:
+  predictions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+
+      - name: Prédictions des matchs à venir
+        env:
+          BETSAPI_TOKEN: ${{ secrets.BETSAPI_TOKEN }}
+          ODDSPAPI_KEY: ${{ secrets.ODDSPAPI_KEY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          BETFAIR_APP_KEY: ${{ secrets.BETFAIR_APP_KEY }}
+          BETFAIR_USERNAME: ${{ secrets.BETFAIR_USERNAME }}
+          BETFAIR_PASSWORD: ${{ secrets.BETFAIR_PASSWORD }}
+        run: python scripts/predict_upcoming.py --days 7 --model lgbm
+
+      - name: Régénération de l'artefact web
+        run: python -m src.export
+
+      - name: Commit des prédictions
+        run: |
+          git config user.name "tt-autonomy-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/predictions.json
+          if git diff --staged --quiet; then
+            echo "Prédictions inchangées."
+          else
+            git commit -m "chore(predictions): matchs à venir du jour"
+            git pull --rebase
+            git push
+          fi
+
+      - name: Synchronise le site (valentinmartine.com)
+        env:
+          SITE_SSH_KEY: ${{ secrets.SITE_SSH_KEY }}
+        run: |
+          if [ -z "$SITE_SSH_KEY" ]; then
+            echo "SITE_SSH_KEY absent, synchro du site ignorée."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SITE_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes"
+          git clone --depth 1 git@github.com:ValentinMartine/valentinmartine.git site_repo
+          cp data/predictions.json site_repo/public/data/tt_predictions.json
+          cd site_repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/tt_predictions.json
+          if git diff --staged --quiet; then
+            echo "Site déjà à jour."
+          else
+            git commit -m "chore(data): matchs à venir du tennis de table"
+            git push
+          fi

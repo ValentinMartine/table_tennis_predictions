@@ -162,4 +162,4 @@ jobs:
 
       - name: Alerte Telegram en cas d'échec du workflow
         if: failure()
-        run: python -m src.monitoring.notify "❌ Workflow d'autonomie ÉCHOUÉ (run ${{ github.run_id }}) — voir les logs GitHub Actions."
+        run: python -m src.monitoring.notify "Workflow d'autonomie en échec (run ${{ github.run_id }}), voir les journaux GitHub Actions."
