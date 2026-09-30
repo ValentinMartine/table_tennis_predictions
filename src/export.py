@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.backtesting.clv import no_vig_prob
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 
@@ -45,6 +47,33 @@ def _int_or_none(value) -> int | None:
         return i if i < 9999 else None
     except (ValueError, TypeError):
         return None
+
+
+def _cote(value) -> float | None:
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if v > 1 else None
+
+
+def _prochain_match(r: pd.Series) -> dict:
+    o1, o2 = _cote(r.get("Cote J1")), _cote(r.get("Cote J2"))
+    return {
+        "date": str(r.get("Date", "")),
+        "tournament": str(r.get("Tournoi", "")),
+        "p1": str(r.get("J1", "")),
+        "p2": str(r.get("J2", "")),
+        "p1_prob": _pct(r.get("P(J1)")),
+        "favorite": str(r.get("Favori", "")),
+        "confidence": _pct(r.get("Confiance")),
+        "edge": _pct(r.get("Edge(book)")),
+        "wtt_p1": _int_or_none(r.get("WTT#1")),
+        "wtt_p2": _int_or_none(r.get("WTT#2")),
+        "odds_p1": o1,
+        "odds_p2": o2,
+        "market_p1_prob": round(no_vig_prob(o1, o2), 4) if o1 and o2 else None,
+    }
 
 
 def build() -> Path:
@@ -84,19 +113,7 @@ def build() -> Path:
     up = DATA / "upcoming_predictions.csv"
     if up.exists():
         udf = pd.read_csv(up)
-        for _, r in udf.iterrows():
-            upcoming.append({
-                "date": str(r.get("Date", "")),
-                "tournament": str(r.get("Tournoi", "")),
-                "p1": str(r.get("J1", "")),
-                "p2": str(r.get("J2", "")),
-                "p1_prob": _pct(r.get("P(J1)")),
-                "favorite": str(r.get("Favori", "")),
-                "confidence": _pct(r.get("Confiance")),
-                "edge": _pct(r.get("Edge")),
-                "wtt_p1": _int_or_none(r.get("WTT#J1")),
-                "wtt_p2": _int_or_none(r.get("WTT#J2")),
-            })
+        upcoming = [_prochain_match(r) for _, r in udf.iterrows()]
 
     backtest = _load_json("backtest_bankroll.json") or None
     betting_thresholds = _load_json("betting_thresholds.json") or None

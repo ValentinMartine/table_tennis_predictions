@@ -15,6 +15,7 @@ API pattern :
   GET https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/{date}
   GET https://api.sofascore.com/api/v1/unique-tournament/{id}/season/{sid}/events/last/{page}
 """
+import json
 import time
 from datetime import datetime, timedelta
 
@@ -33,6 +34,9 @@ except ImportError:
     )
 
 API_BASE = "https://api.sofascore.com/api/v1"
+WEB_BASE = "https://www.sofascore.com/api/v1"
+# Catégorie « International » : toutes les compétitions ITTF et WTT.
+CATEGORIE_INTERNATIONALE = 88
 
 # IDs Sofascore vérifiés (stables - une seule compétition, pas par édition)
 TOURNAMENT_IDS: dict[str, dict] = {
@@ -130,6 +134,58 @@ _CFFI_HEADERS = {
 }
 
 
+class _ChallengeSofascore(Exception):
+    pass
+
+
+class _NavigateurSofascore:
+    """Lit l'API depuis une page sofascore.com : seul client qui passe le challenge anti-bot."""
+
+    def __init__(self, timeout_ms: int = 60000):
+        from playwright.sync_api import sync_playwright
+
+        self._playwright = sync_playwright().start()
+        self._browser = self._playwright.chromium.launch(headless=True)
+        self._page = self._browser.new_page()
+        self._page.goto("https://www.sofascore.com/", wait_until="domcontentloaded", timeout=timeout_ms)
+        self._page.wait_for_timeout(4000)
+
+    def get_texte(self, url: str) -> tuple[int, str]:
+        status, texte = self._page.evaluate(
+            "async u => { const r = await fetch(u); return [r.status, await r.text()]; }", url
+        )
+        return status, texte
+
+    def get_json(self, url: str) -> dict:
+        status, texte = self.get_texte(url)
+        if status != 200:
+            raise RuntimeError(f"HTTP {status} pour {url}")
+        return json.loads(texte)
+
+    def fermer(self) -> None:
+        self._browser.close()
+        self._playwright.stop()
+
+
+class _ReponseTexte:
+    def __init__(self, status_code: int, text: str):
+        self.status_code = status_code
+        self.text = text
+
+    def json(self) -> dict:
+        return json.loads(self.text)
+
+
+class SessionNavigateur:
+    """Interface `get` de requests au-dessus du navigateur, pour le code qui attend une session."""
+
+    def __init__(self, navigateur: _NavigateurSofascore | None = None):
+        self._navigateur = navigateur or _NavigateurSofascore()
+
+    def get(self, url: str, timeout: float | None = None) -> _ReponseTexte:
+        return _ReponseTexte(*self._navigateur.get_texte(url.replace(API_BASE, WEB_BASE)))
+
+
 class SofascoreScraper(BaseScraper):
     SOURCE_NAME = "sofascore"
 
@@ -137,6 +193,8 @@ class SofascoreScraper(BaseScraper):
         super().__init__(config)
         self._request_delay = max(config.get("request_delay_seconds", 1.0), 1.0)
         self._last_request_time: float = 0.0
+        self._navigateur = None
+        self._cache_jours: dict[str, dict] = {}
         if _HAS_CURL_CFFI:
             self._cffi_session = cffi_requests.Session(impersonate="chrome120")
             self._cffi_session.headers.update(_CFFI_HEADERS)
@@ -144,6 +202,30 @@ class SofascoreScraper(BaseScraper):
     # ------------------------------------------------------------------
     # HTTP helpers
     # ------------------------------------------------------------------
+
+    def _ouvrir_navigateur(self) -> _NavigateurSofascore:
+        return _NavigateurSofascore()
+
+    def fermer(self) -> None:
+        if self._navigateur is not None:
+            self._navigateur.fermer()
+            self._navigateur = None
+
+    def _get_json(self, url: str) -> dict:
+        if self._navigateur is None:
+            try:
+                return self._cffi_get(url)
+            except _ChallengeSofascore:
+                logger.info("[sofascore] challenge anti-bot, bascule sur navigateur")
+                self._navigateur = self._ouvrir_navigateur()
+        self._attendre()
+        return self._navigateur.get_json(url.replace(API_BASE, WEB_BASE))
+
+    def _attendre(self) -> None:
+        elapsed = time.time() - self._last_request_time
+        if elapsed < self._request_delay:
+            time.sleep(self._request_delay - elapsed)
+        self._last_request_time = time.time()
 
     def _cffi_get(self, url: str) -> dict:
         """GET via curl-cffi avec throttling et retries."""
@@ -159,8 +241,12 @@ class SofascoreScraper(BaseScraper):
                     url,
                     timeout=self.config.get("timeout_seconds", 30),
                 )
+                if resp.status_code == 403:
+                    raise _ChallengeSofascore(url)
                 resp.raise_for_status()
                 return resp.json()
+            except _ChallengeSofascore:
+                raise
             except Exception as e:
                 if attempt == 2:
                     raise
@@ -180,15 +266,17 @@ class SofascoreScraper(BaseScraper):
             logger.error("curl-cffi requis pour Sofascore. pip install curl-cffi")
             return []
 
-        # Compétition avec ID Sofascore stable → scrape par tournoi
+        # Chaque nouvelle édition WTT reçoit un nouvel identifiant : les identifiants fixes
+        # sont complétés par la recherche par nom, dédoublonnée sur l'identifiant d'événement.
         meta = TOURNAMENT_IDS.get(competition_id)
-        if meta:
-            return self._scrape_by_tournament_id(competition_id, meta, start_date, end_date)
-
-        # Compétition reconnue par nom → scrape par date + filtre
         patterns = NAME_PATTERNS.get(competition_id)
-        if patterns:
-            return self._scrape_by_date_filtered(competition_id, patterns, start_date, end_date)
+        if meta or patterns:
+            matches = []
+            if meta:
+                matches += self._scrape_by_tournament_id(competition_id, meta, start_date, end_date)
+            if patterns:
+                matches += self._scrape_by_date_filtered(competition_id, patterns, start_date, end_date)
+            return list({m.external_id: m for m in matches}.values())
 
         # Fallback : scrape tous les matchs TT de la plage
         logger.warning(
@@ -228,7 +316,7 @@ class SofascoreScraper(BaseScraper):
     ) -> list[RawMatch]:
         matches: list[RawMatch] = []
         try:
-            data = self._cffi_get(f"{API_BASE}/unique-tournament/{t_id}/seasons")
+            data = self._get_json(f"{API_BASE}/unique-tournament/{t_id}/seasons")
             seasons = data.get("seasons", [])
         except Exception as e:
             logger.error(f"Sofascore seasons error pour {competition_id} (id={t_id}): {e}")
@@ -250,7 +338,7 @@ class SofascoreScraper(BaseScraper):
                         f"{API_BASE}/unique-tournament/{t_id}"
                         f"/season/{season_id}/events/last/{page}"
                     )
-                    data = self._cffi_get(url)
+                    data = self._get_json(url)
                 except Exception as e:
                     logger.debug(
                         f"Sofascore {competition_id} season {season_id} p{page}: {e}"
@@ -298,10 +386,11 @@ class SofascoreScraper(BaseScraper):
         while current <= end_date:
             date_str = current.strftime("%Y-%m-%d")
             try:
-                data = self._cffi_get(
-                    f"{API_BASE}/sport/table-tennis/scheduled-events/{date_str}"
-                )
-                for event in data.get("events", []):
+                if date_str not in self._cache_jours:
+                    self._cache_jours[date_str] = self._get_json(
+                        f"{API_BASE}/category/{CATEGORIE_INTERNATIONALE}/scheduled-events/{date_str}"
+                    )
+                for event in self._cache_jours[date_str].get("events", []):
                     try:
                         if name_patterns:
                             ut = (

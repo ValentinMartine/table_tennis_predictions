@@ -29,6 +29,7 @@ from src.models.xgb_model import XGBModel
 from src.features.match_features import build_single_match_features
 from src.features.tournament_projections import TournamentSimulator
 from src.scraping.oddsapi import enrich_with_bookmaker_odds
+from src.scraping.sofascore import SessionNavigateur
 
 try:
     from curl_cffi import requests as cffi_requests
@@ -391,12 +392,15 @@ import time as _time_module
 
 # Cache pour éviter de re-tester Sofascore quand il est bloqué (TTL = 30min)
 _sofascore_blocked_until: float = 0.0
+_session_sofascore = None
 _SOFASCORE_BLOCK_TTL = 1800  # secondes
 
 
 def _try_sofascore_session():
     """Tente de créer une session Sofascore. Retourne la session ou None si bloqué."""
-    global _sofascore_blocked_until
+    global _sofascore_blocked_until, _session_sofascore
+    if _session_sofascore is not None:
+        return _session_sofascore
     if _time_module.time() < _sofascore_blocked_until:
         logger.debug("Sofascore bloqué (cache TTL) -skip")
         return None
@@ -409,10 +413,20 @@ def _try_sofascore_session():
             test = s.get(f"{API_BASE}/sport/table-tennis/events/live", timeout=8)
             if test.status_code == 200:
                 logger.info(f"Sofascore accessible avec impersonate={target}")
+                _session_sofascore = s
                 return s
             logger.debug(f"impersonate={target} → {test.status_code}")
         except Exception:
             continue
+    # Depuis septembre 2026, seul un vrai navigateur passe le challenge anti-bot.
+    try:
+        s = SessionNavigateur()
+        if s.get(f"{API_BASE}/sport/table-tennis/events/live").status_code == 200:
+            logger.info("Sofascore accessible via navigateur")
+            _session_sofascore = s
+            return s
+    except Exception as e:
+        logger.debug(f"Navigateur Sofascore indisponible : {e}")
     _sofascore_blocked_until = _time_module.time() + _SOFASCORE_BLOCK_TTL
     logger.warning(f"Sofascore bloqué -fallback WTT API (retry dans {_SOFASCORE_BLOCK_TTL//60}min)")
     return None
@@ -854,14 +868,13 @@ def main():
     player_map = _load_player_map()
     logger.info(f"{len(player_map)} joueurs en DB")
 
-    sfs_session = None
     upcoming, source = fetch_upcoming_matches(session=None, days=args.days, all_leagues=args.all_leagues)
     logger.info(f"Source: {source}")
     if not upcoming:
         logger.info("Aucun match WTT/international à venir trouvé")
         # Écrit un CSV vide (entête seul) pour ne jamais laisser de prédictions périmées
-        cols = ["Date", "Tournoi", "J1", "J2", "P(J1)", "P(J2)",
-                "Favori", "Confiance", "Edge", "WTT#J1", "WTT#J2"]
+        cols = ["Date", "Tournoi", "J1", "WTT#1", "J2", "WTT#2", "P(J1)", "P(J2)",
+                "Favori", "Confiance", "Δ Modèle/Elo", "Edge(book)", "Cote J1", "Cote J2"]
         pd.DataFrame(columns=cols).to_csv("data/upcoming_predictions.csv", index=False)
         return
 
@@ -916,7 +929,7 @@ def main():
             else:
                 start = "?"
             # --- NOUVEAU : Enregistrement Paper Betting ---
-            o1, o2 = fetch_odds_for_event(sfs_session, ev["event_id"]) if sfs_session else (0.0, 0.0)
+            o1, o2 = book_o1 or 0.0, book_o2 or 0.0
             
             # On calcule l'edge contre les cotes réelles si dispos
             edge_1 = prob_p1 - (1/o1) if o1 > 0 else 0
@@ -980,6 +993,8 @@ def main():
                 "Confiance": f"{fav_prob:.1%}",
                 "Δ Modèle/Elo": f"{delta_model_elo:+.1%}",
                 "Edge(book)": f"{max(edge_1, edge_2):+.1%}" if (o1 > 0 and o2 > 0) else "-",
+                "Cote J1": book_o1 or "-",
+                "Cote J2": book_o2 or "-",
             })
 
     # Afficher

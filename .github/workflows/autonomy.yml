@@ -47,7 +47,9 @@ jobs:
           cache: pip
 
       - name: Installation des dépendances
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
 
       - name: Mise à jour des classements (snapshots datés → historisation)
         run: |

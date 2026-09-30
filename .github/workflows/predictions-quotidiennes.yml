@@ -29,7 +29,9 @@ jobs:
           cache: pip
 
       - name: Installation des dépendances
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
 
       - name: Prédictions des matchs à venir
         env:

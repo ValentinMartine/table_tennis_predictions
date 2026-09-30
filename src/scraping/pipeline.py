@@ -181,4 +181,5 @@ def run_scraping(
         stats[source] = total_inserted
         logger.info(f"{source} : {total_inserted} nouveaux matchs insérés au total")
 
+    scrapers["sofascore"].fermer()
     return stats
