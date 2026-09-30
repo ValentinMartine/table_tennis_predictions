@@ -222,8 +222,8 @@ features:
     fatigue_threshold_hours: 48      # <48h entre matchs = fatigue
   time_decay_enabled: true
   time_decay_halflife: 730           # 2 ans ; à valider au retrain (10000 = quasi désactivé)
-  ranking_as_of: false               # true = classement à la date du match (anti-fuite) ;
-                                     # activer une fois >= plusieurs snapshots datés accumulés
+  ranking_as_of: true                # classement à la date du match ; 9999 avant le premier
+                                     # instantané (30/03/2026). En false, fuite du classement futur.
 
 models:
   val_cutoff_date: "2024-01-01"     # train : 2022-2023, val : 2024, test : 2025
