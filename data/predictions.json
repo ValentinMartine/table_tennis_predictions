@@ -1,104 +1,104 @@
 {
-  "generated_at": "2026-09-28T13:07:59+00:00",
+  "generated_at": "2026-10-05T13:55:44+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
-    "accuracy": 0.7012,
-    "roc_auc": 0.7772,
-    "log_loss": 0.5648,
-    "brier": 0.192,
+    "accuracy": 0.7005,
+    "roc_auc": 0.7765,
+    "log_loss": 0.5654,
+    "brier": 0.1923,
     "n_test": 5920,
     "elo_accuracy": 0.6912,
     "elo_log_loss": 0.5777
   },
   "calibration": [
     {
-      "pred": 0.0669,
-      "observed": 0.0541
+      "pred": 0.0716,
+      "observed": 0.0625
     },
     {
-      "pred": 0.1584,
-      "observed": 0.128
+      "pred": 0.1592,
+      "observed": 0.138
     },
     {
-      "pred": 0.2521,
-      "observed": 0.2488
+      "pred": 0.2531,
+      "observed": 0.2355
     },
     {
       "pred": 0.3514,
-      "observed": 0.3383
+      "observed": 0.3432
     },
     {
-      "pred": 0.4498,
-      "observed": 0.4403
+      "pred": 0.4503,
+      "observed": 0.4443
     },
     {
-      "pred": 0.5429,
-      "observed": 0.5416
+      "pred": 0.5438,
+      "observed": 0.535
     },
     {
-      "pred": 0.6495,
-      "observed": 0.6639
+      "pred": 0.65,
+      "observed": 0.6655
     },
     {
-      "pred": 0.7504,
-      "observed": 0.7849
+      "pred": 0.749,
+      "observed": 0.7878
     },
     {
-      "pred": 0.8472,
-      "observed": 0.9013
+      "pred": 0.8476,
+      "observed": 0.9062
     },
     {
-      "pred": 0.9206,
-      "observed": 0.9652
+      "pred": 0.9198,
+      "observed": 0.9635
     }
   ],
   "calibration_quality": {
-    "ece": 0.0183,
-    "mce": 0.0541,
-    "brier_reliability": 0.00062,
-    "brier_resolution": 0.05633
+    "ece": 0.0205,
+    "mce": 0.0586,
+    "brier_reliability": 0.0007,
+    "brier_resolution": 0.05686
   },
   "feature_importance": [
     {
       "feature": "glicko_rd_p1",
-      "value": 0.3307
-    },
-    {
-      "feature": "glicko_win_prob_p1",
-      "value": 0.3124
+      "value": 0.3229
     },
     {
       "feature": "glicko_diff",
-      "value": 0.3085
+      "value": 0.3135
     },
     {
-      "feature": "glicko_rd_p2",
-      "value": 0.2513
+      "feature": "glicko_win_prob_p1",
+      "value": 0.2967
     },
     {
       "feature": "glicko_rd_diff",
-      "value": 0.2255
+      "value": 0.2576
+    },
+    {
+      "feature": "glicko_rd_p2",
+      "value": 0.2365
     },
     {
       "feature": "elo_diff",
-      "value": 0.1836
+      "value": 0.1975
     },
     {
       "feature": "glicko_vol_p1",
-      "value": 0.1768
-    },
-    {
-      "feature": "avg_sets_p2",
-      "value": 0.1651
+      "value": 0.1891
     },
     {
       "feature": "rest_hours_p2",
-      "value": 0.1626
+      "value": 0.1666
     },
     {
-      "feature": "form_p1",
-      "value": 0.1521
+      "feature": "avg_sets_p2",
+      "value": 0.16
+    },
+    {
+      "feature": "avg_sets_p1",
+      "value": 0.1476
     }
   ],
   "backtest": {
@@ -109,43 +109,40 @@
       973.21,
       1007.27,
       1023.38,
-      1002.92,
-      1018.96,
-      1037.49,
-      1050.26,
-      1084.39,
-      1062.71,
-      1086.08,
-      1064.36,
-      1078.56,
-      1056.98,
-      1071.08,
-      1124.63,
-      1102.14,
-      1080.1,
-      1101.7,
-      1117.72,
-      1095.37,
-      1113.62,
-      1091.35,
-      1108.81,
-      1127.29,
-      1104.74,
-      1135.12,
-      1166.34,
-      1180.68,
-      1196.43
+      1039.76,
+      1058.66,
+      1093.07,
+      1071.21,
+      1094.78,
+      1072.88,
+      1087.19,
+      1065.44,
+      1079.65,
+      1133.63,
+      1110.96,
+      1088.74,
+      1110.51,
+      1126.67,
+      1145.44,
+      1122.54,
+      1140.5,
+      1159.5,
+      1136.31,
+      1167.56,
+      1199.66,
+      1214.42,
+      1230.61
     ],
     "stats": {
-      "n_bets": 31,
-      "roi_pct": 19.64,
-      "win_rate_pct": 64.52,
-      "avg_odds": 2.018,
-      "avg_edge_pct": 27.81,
-      "sharpe_ratio": 1.59,
+      "n_bets": 28,
+      "roi_pct": 23.06,
+      "win_rate_pct": 67.86,
+      "avg_odds": 2.03,
+      "avg_edge_pct": 28.85,
+      "sharpe_ratio": 1.954,
       "max_drawdown_pct": -3.96,
-      "final_bankroll": 1196.43,
-      "profit_total": 196.43
+      "final_bankroll": 1230.61,
+      "profit_total": 230.61
     }
   },
   "betting_thresholds": null,
