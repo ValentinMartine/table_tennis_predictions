@@ -34,3 +34,13 @@ def test_chromium_installe_pour_sofascore():
         jobs = [flux["jobs"][job]] if job else list(flux["jobs"].values())
         commandes = " ".join(e.get("run", "") for j in jobs for e in j["steps"])
         assert "playwright install --with-deps chromium" in commandes, nom
+
+
+def test_jours_de_cron_acceptes_par_github():
+    # GitHub refuse le jour 7 (dimanche = 0) : « 2-7 » invalidait tout le fichier, sans aucun run.
+    for fichier in WORKFLOWS.glob("*.yml"):
+        flux = yaml.safe_load(fichier.read_text(encoding="utf-8"))
+        for horaire in (flux.get(True) or flux.get("on") or {}).get("schedule", []):
+            jours = horaire["cron"].split()[4]
+            nombres = [int(n) for n in jours.replace("-", ",").split(",") if n.isdigit()]
+            assert all(0 <= n <= 6 for n in nombres), f"{fichier.name} : {horaire['cron']}"

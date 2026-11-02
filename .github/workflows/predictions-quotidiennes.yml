@@ -6,7 +6,7 @@ name: Prédictions quotidiennes (matchs à venir)
 
 on:
   schedule:
-    - cron: "0 7 * * 2-7" # du mardi au dimanche 07:00 UTC ; le lundi, l'autonomie s'en charge
+    - cron: "0 7 * * 0,2-6" # du mardi au dimanche 07:00 UTC ; le lundi, l'autonomie s'en charge
   workflow_dispatch: {}
 
 permissions:
