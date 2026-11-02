@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-29T21:29:45+00:00",
+  "generated_at": "2026-11-02T15:00:56+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
@@ -21,7 +21,7 @@
       "observed": 0.1365
     },
     {
-      "pred": 0.2529,
+      "pred": 0.253,
       "observed": 0.2352
     },
     {
@@ -49,13 +49,13 @@
       "observed": 0.8863
     },
     {
-      "pred": 0.9219,
+      "pred": 0.9218,
       "observed": 0.9695
     }
   ],
   "calibration_quality": {
     "ece": 0.016,
-    "mce": 0.0476,
+    "mce": 0.0477,
     "brier_reliability": 0.00051,
     "brier_resolution": 0.05449
   },
@@ -104,232 +104,47 @@
   "backtest": {
     "initial_bankroll": 1000.0,
     "curve": [
-      1022.0,
-      1035.63,
-      1049.44,
-      1063.43,
-      1042.16,
-      1021.32,
-      1034.94,
-      1052.18,
-      1069.72,
-      1048.33,
-      1027.36,
-      1006.81,
-      1023.59,
-      1036.19,
-      1015.47,
-      995.16,
-      1008.43,
-      1024.56,
-      1004.07,
-      1024.15,
-      1037.81,
-      1017.05,
-      1037.39,
-      1052.48,
-      1031.43,
-      1010.8,
-      990.59,
-      970.78,
-      995.05,
-      1007.29,
-      1027.44,
-      1044.56,
-      1061.27,
-      1040.05,
-      1073.85,
-      1052.37,
-      1031.33,
-      1010.7,
-      1026.87,
-      1040.56,
-      1019.75,
-      999.36,
-      1016.01,
-      1051.57,
-      1068.4,
-      1085.49,
-      1105.23,
-      1118.83,
-      1141.21,
-      1178.3,
-      1154.73,
-      1131.64,
-      1156.53,
-      1133.4,
-      1148.51,
-      1125.54,
-      1140.55,
-      1197.58,
-      1221.53,
-      1197.1,
-      1173.16,
-      1190.22,
-      1214.03,
-      1274.73,
-      1295.97,
-      1270.05,
-      1291.22,
-      1265.4,
-      1285.64,
-      1259.93,
-      1280.92,
-      1255.3,
-      1276.22,
-      1311.31,
-      1347.37,
-      1363.95,
-      1336.67,
-      1309.93,
-      1327.4
+      980.0,
+      993.07,
+      973.21,
+      1007.27,
+      1023.38,
+      1041.99,
+      1075.86,
+      1054.34,
+      1033.25,
+      1047.03,
+      1026.09,
+      1039.77,
+      1018.98,
+      998.6,
+      1018.57,
+      1069.5,
+      1085.05,
+      1063.35,
+      1081.07,
+      1059.45,
+      1076.4,
+      1094.34,
+      1072.45,
+      1101.94,
+      1132.25,
+      1146.17,
+      1161.46
     ],
     "stats": {
-      "n_bets": 79,
-      "roi_pct": 32.74,
-      "win_rate_pct": 60.76,
-      "avg_odds": 1.962,
-      "avg_edge_pct": 27.78,
-      "sharpe_ratio": 1.62,
-      "max_drawdown_pct": -9.25,
-      "final_bankroll": 1327.4,
-      "profit_total": 327.4
+      "n_bets": 27,
+      "roi_pct": 16.15,
+      "win_rate_pct": 62.96,
+      "avg_odds": 2.068,
+      "avg_edge_pct": 29.16,
+      "sharpe_ratio": 1.401,
+      "max_drawdown_pct": -7.18,
+      "final_bankroll": 1161.46,
+      "profit_total": 161.46
     }
   },
-  "betting_thresholds": {
-    "thresholds": [
-      {
-        "threshold": 0.5,
-        "n_bets": 515,
-        "roi_pct": 3.87,
-        "final_bankroll": 1038.71,
-        "max_drawdown_pct": -42.08,
-        "sharpe_ratio": 0.069,
-        "win_rate_pct": 46.8
-      },
-      {
-        "threshold": 0.55,
-        "n_bets": 445,
-        "roi_pct": -9.52,
-        "final_bankroll": 904.8,
-        "max_drawdown_pct": -43.69,
-        "sharpe_ratio": -0.205,
-        "win_rate_pct": 47.42
-      },
-      {
-        "threshold": 0.6,
-        "n_bets": 355,
-        "roi_pct": -1.32,
-        "final_bankroll": 986.78,
-        "max_drawdown_pct": -38.72,
-        "sharpe_ratio": -0.034,
-        "win_rate_pct": 49.58
-      },
-      {
-        "threshold": 0.65,
-        "n_bets": 250,
-        "roi_pct": -2.79,
-        "final_bankroll": 972.14,
-        "max_drawdown_pct": -36.05,
-        "sharpe_ratio": -0.088,
-        "win_rate_pct": 50.8
-      },
-      {
-        "threshold": 0.7,
-        "n_bets": 144,
-        "roi_pct": 25.09,
-        "final_bankroll": 1250.93,
-        "max_drawdown_pct": -13.16,
-        "sharpe_ratio": 0.971,
-        "win_rate_pct": 56.25
-      },
-      {
-        "threshold": 0.75,
-        "n_bets": 79,
-        "roi_pct": 32.74,
-        "final_bankroll": 1327.4,
-        "max_drawdown_pct": -9.25,
-        "sharpe_ratio": 1.62,
-        "win_rate_pct": 60.76
-      },
-      {
-        "threshold": 0.8,
-        "n_bets": 36,
-        "roi_pct": 11.54,
-        "final_bankroll": 1115.39,
-        "max_drawdown_pct": -6.53,
-        "sharpe_ratio": 0.968,
-        "win_rate_pct": 61.11
-      }
-    ],
-    "coverage": {
-      "val_with_odds": 0,
-      "test_with_odds": 2764,
-      "eval_with_odds": 2764,
-      "eval_start": "2025-04-24",
-      "eval_end": "2026-04-01"
-    },
-    "basis": "test_real_odds"
-  },
-  "walk_forward": {
-    "folds": [
-      {
-        "period": "2025Q3",
-        "test_start": "2025-07-01",
-        "test_end": "2025-09-30",
-        "threshold": 0.55,
-        "tune_n_bets": 129,
-        "tune_roi_pct": 20.8,
-        "test_n_bets": 79,
-        "test_roi_pct": -2.6,
-        "test_final_bankroll": 973.96,
-        "rolling_bankroll": 973.96
-      },
-      {
-        "period": "2025Q4",
-        "test_start": "2025-10-01",
-        "test_end": "2025-12-31",
-        "threshold": 0.5,
-        "tune_n_bets": 240,
-        "tune_roi_pct": 33.24,
-        "test_n_bets": 81,
-        "test_roi_pct": -30.38,
-        "test_final_bankroll": 678.07,
-        "rolling_bankroll": 678.07
-      },
-      {
-        "period": "2026Q1",
-        "test_start": "2026-01-01",
-        "test_end": "2026-03-31",
-        "threshold": 0.8,
-        "tune_n_bets": 20,
-        "tune_roi_pct": 5.38,
-        "test_n_bets": 15,
-        "test_roi_pct": 4.45,
-        "test_final_bankroll": 708.25,
-        "rolling_bankroll": 708.25
-      },
-      {
-        "period": "2026Q2",
-        "test_start": "2026-04-01",
-        "test_end": "2026-06-30",
-        "threshold": 0.75,
-        "tune_n_bets": 78,
-        "tune_roi_pct": 30.99,
-        "test_n_bets": 1,
-        "test_roi_pct": 1.33,
-        "test_final_bankroll": 717.69,
-        "rolling_bankroll": 717.69
-      }
-    ],
-    "summary": {
-      "folds": 4,
-      "n_bets": 176,
-      "final_bankroll": 717.69,
-      "roi_pct": -28.23,
-      "avg_threshold": 0.65,
-      "test_freq": "Q"
-    }
-  },
+  "betting_thresholds": null,
+  "walk_forward": null,
   "upcoming": []
 }

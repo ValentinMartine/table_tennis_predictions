@@ -3,7 +3,7 @@
   "base_rate": 0.5329,
   "brier": 0.194,
   "ece": 0.016,
-  "mce": 0.0476,
+  "mce": 0.0477,
   "brier_reliability": 0.00051,
   "brier_resolution": 0.05449,
   "brier_uncertainty": 0.24892,
@@ -24,7 +24,7 @@
     },
     {
       "bin": 2,
-      "p_pred": 0.2529,
+      "p_pred": 0.253,
       "p_true": 0.2352,
       "count": 659,
       "gap": 0.0177
@@ -73,10 +73,10 @@
     },
     {
       "bin": 9,
-      "p_pred": 0.9219,
+      "p_pred": 0.9218,
       "p_true": 0.9695,
       "count": 164,
-      "gap": 0.0476
+      "gap": 0.0477
     }
   ]
 }
