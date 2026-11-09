@@ -1,13 +1,13 @@
 {
   "model": "Elo Baseline (test)",
-  "accuracy": 0.6882,
-  "f1": 0.7128,
-  "f1_macro": 0.6859,
-  "precision": 0.698,
-  "recall": 0.7283,
-  "mcc": 0.3726,
-  "log_loss": 0.5831,
-  "brier_score": 0.1989,
-  "roc_auc": 0.7607,
-  "n_samples": 6277
+  "accuracy": 0.6878,
+  "f1": 0.7125,
+  "f1_macro": 0.6855,
+  "precision": 0.6976,
+  "recall": 0.7281,
+  "mcc": 0.3717,
+  "log_loss": 0.5845,
+  "brier_score": 0.1993,
+  "roc_auc": 0.7599,
+  "n_samples": 6345
 }
