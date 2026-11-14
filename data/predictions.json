@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-13T15:13:04+00:00",
+  "generated_at": "2026-11-14T14:00:17+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
@@ -104,5 +104,36 @@
   "backtest": null,
   "betting_thresholds": null,
   "walk_forward": null,
-  "upcoming": []
+  "upcoming": [
+    {
+      "date": "15/11 12:00",
+      "tournament": "WTT Contender Istanbul 2026",
+      "p1": "WALTHER Ricardo",
+      "p2": "FANG Bo",
+      "p1_prob": 0.282,
+      "favorite": "FANG Bo",
+      "confidence": 0.718,
+      "edge": null,
+      "wtt_p1": 64,
+      "wtt_p2": null,
+      "odds_p1": null,
+      "odds_p2": null,
+      "market_p1_prob": null
+    },
+    {
+      "date": "15/11 12:00",
+      "tournament": "WTT Contender Istanbul 2026",
+      "p1": "KANG Dongsoo",
+      "p2": "YOSHIYAMA Ryoichi",
+      "p1_prob": 0.282,
+      "favorite": "YOSHIYAMA Ryoichi",
+      "confidence": 0.718,
+      "edge": null,
+      "wtt_p1": null,
+      "wtt_p2": 62,
+      "odds_p1": null,
+      "odds_p2": null,
+      "market_p1_prob": null
+    }
+  ]
 }
