@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-14T14:59:32+00:00",
+  "generated_at": "2026-11-14T21:39:46+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
@@ -284,13 +284,13 @@
   },
   "upcoming": [
     {
-      "date": "14/11 16:15",
-      "tournament": "WTT Contender Istanbul, MS",
-      "p1": "Kang D.",
-      "p2": "Yoshiyama R.",
-      "p1_prob": 0.264,
-      "favorite": "Yoshiyama R.",
-      "confidence": 0.736,
+      "date": "15/11 12:00",
+      "tournament": "WTT Contender Istanbul 2026",
+      "p1": "FANG Bo",
+      "p2": "KANG Dongsoo",
+      "p1_prob": 0.4,
+      "favorite": "KANG Dongsoo",
+      "confidence": 0.6,
       "edge": null,
       "wtt_p1": null,
       "wtt_p2": null,
