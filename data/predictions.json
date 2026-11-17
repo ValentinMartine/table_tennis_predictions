@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-16T21:44:33+00:00",
+  "generated_at": "2026-11-17T16:47:48+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
@@ -101,54 +101,7 @@
       "value": 0.1538
     }
   ],
-  "backtest": {
-    "initial_bankroll": 1000.0,
-    "curve": [
-      1013.33,
-      993.07,
-      973.21,
-      986.18,
-      966.46,
-      1000.29,
-      980.28,
-      995.96,
-      1014.07,
-      1026.55,
-      1059.92,
-      1038.72,
-      1061.57,
-      1040.34,
-      1054.21,
-      1033.13,
-      1046.9,
-      1099.25,
-      1077.26,
-      1055.72,
-      1076.83,
-      1130.67,
-      1147.12,
-      1166.24,
-      1142.91,
-      1161.2,
-      1180.55,
-      1156.93,
-      1188.75,
-      1221.44,
-      1236.46,
-      1252.95
-    ],
-    "stats": {
-      "n_bets": 32,
-      "roi_pct": 25.3,
-      "win_rate_pct": 65.62,
-      "avg_odds": 2.083,
-      "avg_edge_pct": 29.21,
-      "sharpe_ratio": 1.927,
-      "max_drawdown_pct": -4.63,
-      "final_bankroll": 1252.95,
-      "profit_total": 252.95
-    }
-  },
+  "backtest": null,
   "betting_thresholds": null,
   "walk_forward": null,
   "upcoming": []
