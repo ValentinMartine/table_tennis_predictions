@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T15:11:05+00:00",
+  "generated_at": "2026-11-22T15:08:44+00:00",
   "method": "Ensemble LightGBM + XGBoost et baseline Elo, calibration isotonique",
   "metrics": {
     "model": "LightGBM",
@@ -104,36 +104,5 @@
   "backtest": null,
   "betting_thresholds": null,
   "walk_forward": null,
-  "upcoming": [
-    {
-      "date": "21/11 12:00",
-      "tournament": "WTT Star Contender Muscat 2026",
-      "p1": "PARK Ganghyeon",
-      "p2": "TOGAMI Shunsuke",
-      "p1_prob": 0.183,
-      "favorite": "TOGAMI Shunsuke",
-      "confidence": 0.817,
-      "edge": null,
-      "wtt_p1": 44,
-      "wtt_p2": 15,
-      "odds_p1": null,
-      "odds_p2": null,
-      "market_p1_prob": null
-    },
-    {
-      "date": "21/11 12:00",
-      "tournament": "WTT Star Contender Muscat 2026",
-      "p1": "AKAE Kaho",
-      "p2": "HASHIMOTO Honoka",
-      "p1_prob": 0.392,
-      "favorite": "HASHIMOTO Honoka",
-      "confidence": 0.608,
-      "edge": null,
-      "wtt_p1": 36,
-      "wtt_p2": 14,
-      "odds_p1": null,
-      "odds_p2": null,
-      "market_p1_prob": null
-    }
-  ]
+  "upcoming": []
 }
